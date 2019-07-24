@@ -22,7 +22,8 @@
     "build": "echo \"*** Building lib\n\" && rm -rf lib/* && babel src/components --optional runtime --stage 0 --out-dir lib/components && babel src/js --optional runtime --stage 0 --out-dir lib/js && babel src/entry.js --optional runtime --stage 0 --out-file lib/entry.js",
     "start-website": "react-scripts start",
     "build-website": "echo \"*** Building website\n\" && rm -rf docs && react-scripts build && mv build docs",
-    "precommit": "lint-staged"
+    "precommit": "lint-staged",
+    "watch": "webpack --progress --watch --mode development"
   },
   "lint-staged": {
     "src/**/*.js": [
@@ -84,7 +85,8 @@
     "react-router": "^3.2.0",
     "react-scripts": "^2.1.1",
     "react-select": "^1.1.0",
-    "ringjs": "0.0.1"
+    "ringjs": "0.0.1",
+    "webpack-cli": "^3.3.2"
   },
   "peerDependencies": {
     "pondjs": "^0.8.0",
