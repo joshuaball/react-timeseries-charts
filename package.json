@@ -1,6 +1,6 @@
 {
   "name": "@inductiveautomation/react-timeseries-charts",
-  "version": "0.16.2-ia",
+  "version": "0.16.3-ia",
   "description": "Declarative timeseries charts",
   "keywords": [
     "d3",
@@ -20,6 +20,7 @@
     "lint": "eslint src/components/*.js",
     "test": "npm run lint",
     "build": "echo \"*** Building lib\n\" && rm -rf lib/* && babel src/components --optional runtime --stage 0 --out-dir lib/components && babel src/js --optional runtime --stage 0 --out-dir lib/js && babel src/entry.js --optional runtime --stage 0 --out-file lib/entry.js",
+    "build:windows": "cd lib && del /f/q/s *.* && cd .. && babel src/components --optional runtime --stage 0 --out-dir lib/components && babel src/js --optional runtime --stage 0 --out-dir lib/js && babel src/entry.js --optional runtime --stage 0 --out-file lib/entry.js",
     "start-website": "react-scripts start",
     "build-website": "echo \"*** Building website\n\" && rm -rf docs && react-scripts build && mv build docs",
     "precommit": "lint-staged",
