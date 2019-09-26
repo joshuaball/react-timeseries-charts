@@ -373,7 +373,14 @@ export default class ChartRow extends React.Component {
                     timeScale: this.props.timeScale
                 };
                 if (areComponentsEqual(child.type, Brush)) {
-                    brushList.push(React.cloneElement(child, brushProps));
+                    brushList.push(
+                        React.cloneElement(
+                            child,
+                            Object.assign(brushProps, {
+                                isPinchZooming: this.props.isPinchZooming
+                            })
+                        )
+                    );
                 } else {
                     multiBrushList.push(React.cloneElement(child, brushProps));
                 }
@@ -546,6 +553,11 @@ ChartRow.propTypes = {
      * Specify the styling of the box behind chart row's title
      */
     titleBoxStyle: PropTypes.object,
+
+    /**
+     * Used to pause the touch interactions while true.
+     */
+    isPinchZooming: PropTypes.bool,
 
     children: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.node), PropTypes.node]),
     leftAxisWidths: PropTypes.arrayOf(PropTypes.number),

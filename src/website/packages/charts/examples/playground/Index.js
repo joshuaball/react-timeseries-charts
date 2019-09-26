@@ -15,9 +15,10 @@ import _ from "underscore";
 import Moment from "moment";
 
 // Pond
-import { TimeSeries } from "pondjs";
+import { TimeRange, TimeSeries } from "pondjs";
 
 // Imports from the charts library
+import Brush from "../../../../../components/Brush";
 import ChartContainer from "../../../../../components/ChartContainer";
 import ChartRow from "../../../../../components/ChartRow";
 import Charts from "../../../../../components/Charts";
@@ -66,7 +67,17 @@ class playground extends React.Component {
         highlight: null,
         selection: null,
         tracker: null,
-        timerange: series.range()
+        timerange: series.range(),
+        brushrange: new TimeRange(
+            series
+                .range()
+                .begin()
+                .valueOf() + 18000000,
+            series
+                .range()
+                .end()
+                .valueOf() - 18000000
+        )
     };
 
     handleSelectionChanged = point => {
@@ -81,13 +92,19 @@ class playground extends React.Component {
         });
     };
 
+    handleBrushTimeRangeChange = brushrange => {
+        this.setState({
+            brushrange
+        });
+    };
+
     /**
      * This is the click handler of the parent DOM container.  This should fire regardless of a chart being clicked
      * or the container (meaning that all charts should be allowing event propagation).
      * @param event
      */
     handleDomContainerClick = event => {
-        console.log("PARENT DOM CONTAINER MOUSE CLICK - BUBBLED UP TO HERE", event);
+        // console.log("PARENT DOM CONTAINER MOUSE CLICK - BUBBLED UP TO HERE", event);
     };
 
     /**
@@ -97,7 +114,7 @@ class playground extends React.Component {
      * @param event
      */
     handleChartContainerMouseClick = event => {
-        console.log("CHART CONTAINER MOUSE CLICK", event);
+        // console.log("CHART CONTAINER MOUSE CLICK", event);
         this.setState({ selection: null });
     };
 
@@ -181,6 +198,10 @@ class playground extends React.Component {
                                     trackerInfoHeight={30}
                                     trackerInfoValues={infoValues}
                                 >
+                                    <Brush
+                                        timeRange={this.state.brushrange}
+                                        onTimeRangeChanged={this.handleBrushTimeRangeChange}
+                                    />
                                     <YAxis
                                         id="wind-gust"
                                         label="Wind gust (mph)"
