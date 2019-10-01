@@ -366,8 +366,7 @@ export default class EventHandler extends React.Component {
                 if (scale < 0.1) {
                     scale = 0.1;
                 }
-                // Use the first event in the cache (likely the thumb) as a reference for event pageX placement to
-                // trigger the zoom.
+                // Use the first event in the cache as a reference for event pageX placement to trigger the zoom.
                 const xy = this.getOffsetCentralPosition(this.eventCache[0]);
                 const begin = this.props.scale.domain()[0].getTime();
                 const end = this.props.scale.domain()[1].getTime();
