@@ -25,10 +25,14 @@ import { getElementOffset } from "../js/util";
  * and hover actions.
  */
 export default class EventHandler extends React.Component {
+    eventCache = [];
+    previousDiff = -1;
+
     constructor(props) {
         super(props);
 
         this.state = {
+            isPinchZooming: false,
             isPanning: false,
             initialPanBegin: null,
             initialPanEnd: null,
@@ -40,7 +44,12 @@ export default class EventHandler extends React.Component {
         this.handleMouseUp = this.handleMouseUp.bind(this);
         this.handleMouseOut = this.handleMouseOut.bind(this);
         this.handleMouseMove = this.handleMouseMove.bind(this);
+
         this.handleContextMenu = this.handleContextMenu.bind(this);
+        this.handlePointerDown = this.handlePointerDown.bind(this);
+        this.handlePointerMove = this.handlePointerMove.bind(this);
+        this.handlePointerDoneEvent = this.handlePointerDoneEvent.bind(this);
+        this.handleTouchStart = this.handleTouchStart.bind(this);
     }
 
     componentDidMount() {
@@ -48,39 +57,14 @@ export default class EventHandler extends React.Component {
     }
 
     // get the event mouse position relative to the event rect
-    getOffsetMousePosition(e) {
+    getOffsetCentralPosition(e) {
         const offset = getElementOffset(this.eventRect);
         const x = e.pageX - offset.left;
         const y = e.pageY - offset.top;
         return [Math.round(x), Math.round(y)];
     }
 
-    //
-    // Event handlers
-    //
-
-    handleScrollWheel(e) {
-        if (!this.props.enablePanZoom && !this.props.enableDragZoom) {
-            return;
-        }
-
-        e.preventDefault();
-
-        const SCALE_FACTOR = 0.001;
-        let scale = 1 + e.deltaY * SCALE_FACTOR;
-        if (scale > 3) {
-            scale = 3;
-        }
-        if (scale < 0.1) {
-            scale = 0.1;
-        }
-
-        const xy = this.getOffsetMousePosition(e);
-
-        const begin = this.props.scale.domain()[0].getTime();
-        const end = this.props.scale.domain()[1].getTime();
-        const center = this.props.scale.invert(xy[0]).getTime();
-
+    triggerZoom(begin, end, center, scale) {
         let beginScaled = center - parseInt((center - begin) * scale, 10);
         let endScaled = center + parseInt((end - center) * scale, 10);
 
@@ -123,6 +107,35 @@ export default class EventHandler extends React.Component {
         }
     }
 
+    //
+    // Event handlers
+    //
+
+    handleScrollWheel(e) {
+        if (!this.props.enablePanZoom && !this.props.enableDragZoom) {
+            return;
+        }
+
+        e.preventDefault();
+
+        const SCALE_FACTOR = 0.001;
+        let scale = 1 + e.deltaY * SCALE_FACTOR;
+        if (scale > 3) {
+            scale = 3;
+        }
+        if (scale < 0.1) {
+            scale = 0.1;
+        }
+
+        const xy = this.getOffsetCentralPosition(e);
+
+        const begin = this.props.scale.domain()[0].getTime();
+        const end = this.props.scale.domain()[1].getTime();
+        const center = this.props.scale.invert(xy[0]).getTime();
+
+        this.triggerZoom(begin, end, center, scale);
+    }
+
     handleMouseDown(e) {
         if (!this.props.enablePanZoom && !this.props.enableDragZoom) {
             return;
@@ -138,7 +151,7 @@ export default class EventHandler extends React.Component {
         document.addEventListener("mouseup", this.handleMouseUp);
 
         if (this.props.enableDragZoom) {
-            const offsetxy = this.getOffsetMousePosition(e);
+            const offsetxy = this.getOffsetCentralPosition(e);
             this.setState({
                 isDragging: true,
                 initialDragZoom: offsetxy[0],
@@ -175,7 +188,7 @@ export default class EventHandler extends React.Component {
         document.removeEventListener("mouseover", this.handleMouseMove);
         document.removeEventListener("mouseup", this.handleMouseUp);
 
-        const offsetxy = this.getOffsetMousePosition(e);
+        const offsetxy = this.getOffsetCentralPosition(e);
 
         const x = e.pageX;
         const isPanning =
@@ -240,7 +253,7 @@ export default class EventHandler extends React.Component {
         const x = e.pageX;
         const y = e.pageY;
         const xy = [Math.round(x), Math.round(y)];
-        const offsetxy = this.getOffsetMousePosition(e);
+        const offsetxy = this.getOffsetCentralPosition(e);
         if (this.state.isDragging) {
             this.setState({
                 currentDragZoom: offsetxy[0]
@@ -271,7 +284,7 @@ export default class EventHandler extends React.Component {
                 this.props.onZoom(newTimeRange);
             }
         } else if (this.props.onMouseMove) {
-            const mousePosition = this.getOffsetMousePosition(e);
+            const mousePosition = this.getOffsetCentralPosition(e);
             if (this.props.onMouseMove) {
                 this.props.onMouseMove(mousePosition[0], mousePosition[1]);
             }
@@ -283,6 +296,123 @@ export default class EventHandler extends React.Component {
         var y = e.pageY;
         if (this.props.onContextMenu) {
             this.props.onContextMenu(x, y);
+        }
+    }
+
+    /**
+     *
+     * @param e {TouchEvent}
+     */
+    handleTouchStart(e) {
+        if (e.touches && e.touches.length >= 2) {
+            // Notify that a pinch zoom has started
+            if (this.props.onPinchZoomStart && !this.state.isPinchZooming) {
+                this.setState({
+                    isPinchZooming: true
+                });
+                this.props.onPinchZoomStart();
+            }
+        }
+    }
+
+    /**
+     * Save off the events for running calculations to determine if the zoom is going in or out.
+     * @param e {PointerEvent}
+     */
+    handlePointerDown(e) {
+        if (e.persist) {
+            e.persist();
+        }
+        this.eventCache.push(e);
+    }
+
+    /**
+     * This function implements a 2-pointer horizontal pinch/zoom gesture. If the distance between the two pointers
+     * has increased (zoom in), and if the distance is decreasing (zoom out).
+     * @param e {PointerEvent}
+     */
+    handlePointerMove(e) {
+        if (e.persist) {
+            e.persist();
+        }
+
+        // Find this event in the cache and update its record with this event
+        for (let i = 0; i < this.eventCache.length; i++) {
+            if (e.pointerId === this.eventCache[i].pointerId) {
+                this.eventCache[i] = e;
+                break;
+            }
+        }
+        // If two pointers are down, check for pinch gestures
+        if (this.eventCache.length === 2) {
+            // Notify that a pinch zoom has started
+            if (this.props.onPinchZoomStart && !this.state.isPinchZooming) {
+                this.setState({
+                    isPinchZooming: true
+                });
+                this.props.onPinchZoomStart();
+            }
+            // Calculate the distance between the two pointers
+            const curDiff = Math.abs(this.eventCache[0].clientX - this.eventCache[1].clientX);
+            if (this.previousDiff > 0) {
+                // If zoomDiff is negative, zooming IN.  Positive, zooming OUT.
+                const zoomDiff = this.previousDiff - curDiff;
+                // Use a 10x greater scale value to calculate zoom since pinching is 10x slower (roughly)
+                const SCALE_FACTOR = 0.01;
+                let scale = 1 + zoomDiff * SCALE_FACTOR;
+                if (scale > 3) {
+                    scale = 3;
+                }
+                if (scale < 0.1) {
+                    scale = 0.1;
+                }
+                // Use the first event in the cache (likely the thumb) as a reference for event pageX placement to
+                // trigger the zoom.
+                const xy = this.getOffsetCentralPosition(this.eventCache[0]);
+                const begin = this.props.scale.domain()[0].getTime();
+                const end = this.props.scale.domain()[1].getTime();
+                const center = this.props.scale.invert(xy[0]).getTime();
+                this.triggerZoom(begin, end, center, scale);
+            }
+            // Cache the distance for the next move event
+            this.previousDiff = curDiff;
+        }
+    }
+
+    /**
+     * When the pointer event has completed, toggle the state variable and reset the diff variable.
+     * @param e {PointerEvent}
+     */
+    handlePointerDoneEvent(e) {
+        if (e.persist) {
+            e.persist();
+        }
+        this.removeEvent(e);
+
+        // Notify that the pinch zoom has stopped
+        if (this.props.onPinchZoomEnd && this.state.isPinchZooming) {
+            this.setState({
+                isPinchZooming: false
+            });
+            this.props.onPinchZoomEnd();
+        }
+
+        // If the number of pointers down is less than two then reset diff tracker
+        if (this.eventCache.length < 2) {
+            this.previousDiff = -1;
+        }
+    }
+
+    /**
+     * Remove this event from the eventCache.
+     * @param e {PointerEvent}
+     */
+    removeEvent(e) {
+        for (let i = 0; i < this.eventCache.length; i++) {
+            if (this.eventCache[i].pointerId === e.pointerId) {
+                this.eventCache.splice(i, 1);
+                break;
+            }
         }
     }
 
@@ -299,6 +429,33 @@ export default class EventHandler extends React.Component {
             onMouseUp: this.handleMouseUp,
             onContextMenu: this.handleContextMenu
         };
+
+        // NOTE: The foreign object is necessary to render a div over the chart that can kill touch/pointer events
+        // and allow the pointer event handlers higher up in the DOM to work predictably.  Style and attache handlers
+        // appropriately if a form of zoom is enabled.
+        let foreignObjectSizerStyle = {
+            position: "absolute",
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0
+        };
+        let pointerHandlers = {};
+        if (this.props.enableDragZoom === true || this.props.enablePanZoom === true) {
+            foreignObjectSizerStyle.pointerEvents = "none";
+            foreignObjectSizerStyle.touchAction = "none";
+
+            pointerHandlers = {
+                onPointerDown: this.handlePointerDown,
+                onPointerMove: this.handlePointerMove,
+                onPointerUp: this.handlePointerDoneEvent,
+                onPointerCancel: this.handlePointerDoneEvent,
+                onPointerOut: this.handlePointerDoneEvent,
+                onPointerLeave: this.handlePointerDoneEvent,
+                onTouchStart: this.handleTouchStart
+            };
+        }
+
         return (
             <g
                 pointerEvents="all"
@@ -306,7 +463,11 @@ export default class EventHandler extends React.Component {
                     this.eventHandlerRef = c;
                 }}
                 {...handlers}
+                {...pointerHandlers}
             >
+                <foreignObject x={0} y={0} width={this.props.width} height={this.props.height}>
+                    <div style={foreignObjectSizerStyle} />
+                </foreignObject>
                 <rect
                     key="handler-hit-rect"
                     ref={c => {
@@ -345,6 +506,8 @@ EventHandler.propTypes = {
     minTime: PropTypes.instanceOf(Date),
     minDuration: PropTypes.number,
     onZoom: PropTypes.func,
+    onPinchZoomStart: PropTypes.func,
+    onPinchZoomEnd: PropTypes.func,
     onMouseMove: PropTypes.func,
     onMouseOut: PropTypes.func,
     onMouseClick: PropTypes.func,

@@ -95,6 +95,11 @@ const defaultTrackerStyle = {
 export default class ChartContainer extends React.Component {
     constructor(props) {
         super(props);
+
+        this.state = {
+            isPinchZooming: false
+        };
+
         this.handleTrackerChanged = this.handleTrackerChanged.bind(this);
         this.handleTimeRangeChanged = this.handleTimeRangeChanged.bind(this);
         this.handleMouseMove = this.handleMouseMove.bind(this);
@@ -103,6 +108,9 @@ export default class ChartContainer extends React.Component {
         this.handleBackgroundClick = this.handleBackgroundClick.bind(this);
         this.handleZoom = this.handleZoom.bind(this);
         this.saveSvgRef = this.saveSvgRef.bind(this);
+
+        this.handlePinchZoomStart = this.handlePinchZoomStart.bind(this);
+        this.handlePinchZoomEnd = this.handlePinchZoomEnd.bind(this);
     }
 
     //
@@ -199,6 +207,24 @@ export default class ChartContainer extends React.Component {
         if (this.props.onTimeRangeChanged) {
             this.props.onTimeRangeChanged(timerange);
         }
+    }
+
+    /**
+     * Catch the event from the EventHandler and modify state.
+     */
+    handlePinchZoomStart() {
+        this.setState({
+            isPinchZooming: true
+        });
+    }
+
+    /**
+     * Catch the event from the EventHandler and modify state.
+     */
+    handlePinchZoomEnd() {
+        this.setState({
+            isPinchZooming: false
+        });
     }
 
     saveSvgRef(c) {
@@ -390,6 +416,7 @@ export default class ChartContainer extends React.Component {
                     trackerTime: this.props.trackerPosition,
                     trackerTimeFormat: this.props.format,
                     trackerStyle: trackerStyle,
+                    isPinchZooming: this.state.isPinchZooming,
                     onTimeRangeChanged: this.handleTimeRangeChanged,
                     onTrackerChanged: this.handleTrackerChanged
                 };
@@ -464,13 +491,13 @@ export default class ChartContainer extends React.Component {
                     <TimeMarker
                         width={chartsWidth}
                         height={chartsHeight}
-                        showInfoBox={false}
+                        showInfoBox={!!this.props.trackerValues}
                         time={this.props.trackerPosition}
                         timeScale={timeScale}
                         timeFormat={this.props.format}
                         infoWidth={this.props.trackerHintWidth}
                         infoHeight={this.props.trackerHintHeight}
-                        info={this.props.trackerValues}
+                        infoValues={this.props.trackerValues}
                         infoStyle={trackerStyle}
                     />
                 </g>
@@ -543,6 +570,8 @@ export default class ChartContainer extends React.Component {
                     onMouseClick={this.handleBackgroundClick}
                     onContextMenu={this.handleContextMenu}
                     onZoom={this.handleZoom}
+                    onPinchZoomStart={this.handlePinchZoomStart}
+                    onPinchZoomEnd={this.handlePinchZoomEnd}
                 >
                     {chartRows}
                 </EventHandler>
@@ -737,6 +766,7 @@ ChartContainer.propTypes = {
      * When we use the TimeMarker as a tracker, we can style the box and dot as well.
      */
     trackerStyle: PropTypes.shape({
+        label: PropTypes.object, // eslint-disable-line
         line: PropTypes.object, // eslint-disable-line
         box: PropTypes.object, // eslint-disable-line
         dot: PropTypes.object // eslint-disable-line
