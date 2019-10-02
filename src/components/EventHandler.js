@@ -25,7 +25,6 @@ import { getElementOffset } from "../js/util";
  * and hover actions.
  */
 export default class EventHandler extends React.Component {
-    eventCache = [];
     previousDiff = -1;
 
     constructor(props) {
@@ -46,14 +45,47 @@ export default class EventHandler extends React.Component {
         this.handleMouseMove = this.handleMouseMove.bind(this);
 
         this.handleContextMenu = this.handleContextMenu.bind(this);
-        this.handlePointerDown = this.handlePointerDown.bind(this);
-        this.handlePointerMove = this.handlePointerMove.bind(this);
-        this.handlePointerDoneEvent = this.handlePointerDoneEvent.bind(this);
         this.handleTouchStart = this.handleTouchStart.bind(this);
+        this.handleTouchMove = this.handleTouchMove.bind(this);
+        this.handleTouchDone = this.handleTouchDone.bind(this);
     }
 
     componentDidMount() {
         this.eventHandlerRef.addEventListener("wheel", this.handleScrollWheel, { passive: false });
+
+        if (this.props.enableDragZoom === true || this.props.enablePanZoom === true) {
+            // Bound with a passive option so preventDefault can be called on the event (needed for "touchmove")
+            this.eventHandlerRef.addEventListener("touchstart", this.handleTouchStart, {
+                passive: false
+            });
+            this.eventHandlerRef.addEventListener("touchmove", this.handleTouchMove, {
+                passive: false
+            });
+            this.eventHandlerRef.addEventListener("touchend", this.handleTouchDone, {
+                passive: false
+            });
+            this.eventHandlerRef.addEventListener("touchcancel", this.handleTouchDone, {
+                passive: false
+            });
+        }
+    }
+
+    componentWillUnmount() {
+        this.eventHandlerRef.removeEventListener("wheel", this.handleScrollWheel, {
+            passive: false
+        });
+        this.eventHandlerRef.removeEventListener("touchstart", this.handleTouchStart, {
+            passive: false
+        });
+        this.eventHandlerRef.removeEventListener("touchmove", this.handleTouchMove, {
+            passive: false
+        });
+        this.eventHandlerRef.removeEventListener("touchend", this.handleTouchDone, {
+            passive: false
+        });
+        this.eventHandlerRef.removeEventListener("touchcancel", this.handleTouchDone, {
+            passive: false
+        });
     }
 
     // get the event mouse position relative to the event rect
@@ -300,11 +332,11 @@ export default class EventHandler extends React.Component {
     }
 
     /**
-     *
+     * Update pinch/zoom status if there is more than 1 touch point active.
      * @param e {TouchEvent}
      */
     handleTouchStart(e) {
-        if (e.touches && e.touches.length >= 2) {
+        if (e.touches && e.touches.length > 1) {
             // Notify that a pinch zoom has started
             if (this.props.onPinchZoomStart && !this.state.isPinchZooming) {
                 this.setState({
@@ -313,47 +345,21 @@ export default class EventHandler extends React.Component {
                 this.props.onPinchZoomStart();
             }
         }
-    }
-
-    /**
-     * Save off the events for running calculations to determine if the zoom is going in or out.
-     * @param e {PointerEvent}
-     */
-    handlePointerDown(e) {
-        if (e.persist) {
-            e.persist();
-        }
-        this.eventCache.push(e);
     }
 
     /**
      * This function implements a 2-pointer horizontal pinch/zoom gesture. If the distance between the two pointers
-     * has increased (zoom in), and if the distance is decreasing (zoom out).
-     * @param e {PointerEvent}
+     * has increased, zoom in.  If the distance has decreased, zoom out.
+     * @param e {TouchEvent}
      */
-    handlePointerMove(e) {
-        if (e.persist) {
-            e.persist();
-        }
+    handleTouchMove(e) {
+        // NOTE: Preventing default here so that the mousemove event is not fired
+        e.preventDefault();
 
-        // Find this event in the cache and update its record with this event
-        for (let i = 0; i < this.eventCache.length; i++) {
-            if (e.pointerId === this.eventCache[i].pointerId) {
-                this.eventCache[i] = e;
-                break;
-            }
-        }
-        // If two pointers are down, check for pinch gestures
-        if (this.eventCache.length === 2) {
-            // Notify that a pinch zoom has started
-            if (this.props.onPinchZoomStart && !this.state.isPinchZooming) {
-                this.setState({
-                    isPinchZooming: true
-                });
-                this.props.onPinchZoomStart();
-            }
+        // If 2+ pointers are down, check for pinch gestures using the first two
+        if (e.touches && e.touches.length >= 2) {
             // Calculate the distance between the two pointers
-            const curDiff = Math.abs(this.eventCache[0].clientX - this.eventCache[1].clientX);
+            const curDiff = Math.abs(e.touches.item(0).clientX - e.touches.item(1).clientX);
             if (this.previousDiff > 0) {
                 // If zoomDiff is negative, zooming IN.  Positive, zooming OUT.
                 const zoomDiff = this.previousDiff - curDiff;
@@ -367,7 +373,7 @@ export default class EventHandler extends React.Component {
                     scale = 0.1;
                 }
                 // Use the first event in the cache as a reference for event pageX placement to trigger the zoom.
-                const xy = this.getOffsetCentralPosition(this.eventCache[0]);
+                const xy = this.getOffsetCentralPosition(e.touches.item(0));
                 const begin = this.props.scale.domain()[0].getTime();
                 const end = this.props.scale.domain()[1].getTime();
                 const center = this.props.scale.invert(xy[0]).getTime();
@@ -379,15 +385,10 @@ export default class EventHandler extends React.Component {
     }
 
     /**
-     * When the pointer event has completed, toggle the state variable and reset the diff variable.
-     * @param e {PointerEvent}
+     * When the touch event has completed, toggle the state variable and reset the diff variable.
+     * @param e {TouchEvent}
      */
-    handlePointerDoneEvent(e) {
-        if (e.persist) {
-            e.persist();
-        }
-        this.removeEvent(e);
-
+    handleTouchDone(e) {
         // Notify that the pinch zoom has stopped
         if (this.props.onPinchZoomEnd && this.state.isPinchZooming) {
             this.setState({
@@ -395,23 +396,9 @@ export default class EventHandler extends React.Component {
             });
             this.props.onPinchZoomEnd();
         }
-
         // If the number of pointers down is less than two then reset diff tracker
-        if (this.eventCache.length < 2) {
+        if (e.touches && e.touches.length < 2) {
             this.previousDiff = -1;
-        }
-    }
-
-    /**
-     * Remove this event from the eventCache.
-     * @param e {PointerEvent}
-     */
-    removeEvent(e) {
-        for (let i = 0; i < this.eventCache.length; i++) {
-            if (this.eventCache[i].pointerId === e.pointerId) {
-                this.eventCache.splice(i, 1);
-                break;
-            }
         }
     }
 
@@ -430,8 +417,8 @@ export default class EventHandler extends React.Component {
         };
 
         // NOTE: The foreign object is necessary to render a div over the chart that can kill touch/pointer events
-        // and allow the pointer event handlers higher up in the DOM to work predictably.  Style and attache handlers
-        // appropriately if a form of zoom is enabled.
+        // and allow the pointer event handlers higher up in the DOM to work predictably.  Style appropriately if
+        // a form of zoom is enabled.
         let foreignObjectSizerStyle = {
             position: "absolute",
             top: 0,
@@ -439,20 +426,9 @@ export default class EventHandler extends React.Component {
             bottom: 0,
             left: 0
         };
-        let pointerHandlers = {};
         if (this.props.enableDragZoom === true || this.props.enablePanZoom === true) {
             foreignObjectSizerStyle.pointerEvents = "none";
             foreignObjectSizerStyle.touchAction = "none";
-
-            pointerHandlers = {
-                onPointerDown: this.handlePointerDown,
-                onPointerMove: this.handlePointerMove,
-                onPointerUp: this.handlePointerDoneEvent,
-                onPointerCancel: this.handlePointerDoneEvent,
-                onPointerOut: this.handlePointerDoneEvent,
-                onPointerLeave: this.handlePointerDoneEvent,
-                onTouchStart: this.handleTouchStart
-            };
         }
 
         return (
@@ -462,7 +438,6 @@ export default class EventHandler extends React.Component {
                     this.eventHandlerRef = c;
                 }}
                 {...handlers}
-                {...pointerHandlers}
             >
                 <foreignObject x={0} y={0} width={this.props.width} height={this.props.height}>
                     <div style={foreignObjectSizerStyle} />
