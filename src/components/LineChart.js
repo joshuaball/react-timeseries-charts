@@ -106,6 +106,8 @@ export default class LineChart extends React.Component {
     }
 
     handleClick(e, column) {
+        console.log("CLICK", e, column);
+
         if (this.props.onSelectionChange) {
             this.props.onSelectionChange(column);
         }

@@ -165,7 +165,7 @@ export default class ChartContainer extends React.Component {
      *
      * @param x {Number} - The X coordinate on the page where the click event occurred.
      * @param y {Number} - The Y coordinate on the page where the click event occurred.
-     * @param event {MouseEvent} - The triggering click event passed along from the EventHandler class.
+     * @param event {MouseEvent | TouchEvent} - The triggering click event passed along from the EventHandler class.
      */
     handleBackgroundClick(x, y, event) {
         if (this.props.onBackgroundClick) {

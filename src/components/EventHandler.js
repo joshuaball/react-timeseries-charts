@@ -139,48 +139,18 @@ export default class EventHandler extends React.Component {
         }
     }
 
-    //
-    // Event handlers
-    //
-
-    handleScrollWheel(e) {
-        if (!this.props.enablePanZoom && !this.props.enableDragZoom) {
-            return;
-        }
-
-        e.preventDefault();
-
-        const SCALE_FACTOR = 0.001;
-        let scale = 1 + e.deltaY * SCALE_FACTOR;
-        if (scale > 3) {
-            scale = 3;
-        }
-        if (scale < 0.1) {
-            scale = 0.1;
-        }
-
-        const xy = this.getOffsetCentralPosition(e);
-
-        const begin = this.props.scale.domain()[0].getTime();
-        const end = this.props.scale.domain()[1].getTime();
-        const center = this.props.scale.invert(xy[0]).getTime();
-
-        this.triggerZoom(begin, end, center, scale);
-    }
-
-    handleMouseDown(e) {
-        if (!this.props.enablePanZoom && !this.props.enableDragZoom) {
-            return;
-        }
-
-        if (e.button === 2) {
-            return;
-        }
-
-        e.preventDefault();
-
+    /**
+     * Perform the interaction for the 'mousedown' and 'touchstart' events
+     * @param e {MouseEvent | TouchEvent}
+     */
+    handleUserInteractionStart(e) {
         document.addEventListener("mouseover", this.handleMouseMove);
         document.addEventListener("mouseup", this.handleMouseUp);
+        // Use mouse event handlers for single point-of-contact touch; they do everything we care about
+        document.addEventListener("touchmove", this.handleMouseMove, {
+            passive: false
+        });
+        document.addEventListener("touchend", this.handleMouseUp);
 
         if (this.props.enableDragZoom) {
             const offsetxy = this.getOffsetCentralPosition(e);
@@ -206,19 +176,73 @@ export default class EventHandler extends React.Component {
                 initialPanPosition: xy0
             });
         }
-
-        return false;
     }
 
-    handleMouseUp(e) {
-        if (!this.props.onMouseClick && !this.props.enablePanZoom && !this.props.enableDragZoom) {
+    /**
+     * Handle the interaction for the 'mousemove' and 'touchmove' events
+     * @param e {MouseEvent | TouchEvent}
+     */
+    handleUserInteractionMove(e) {
+        const x = e.pageX;
+        const y = e.pageY;
+
+        // NOTE: Function guard needed because Android does not prevent the mousemove event from getting here event
+        // with preventDefault being thrown in the touchmove handler.
+        if (x === undefined || y === undefined) {
             return;
         }
 
-        e.stopPropagation();
+        const xy = [Math.round(x), Math.round(y)];
+        const offsetxy = this.getOffsetCentralPosition(e);
 
+        if (this.state.isDragging) {
+            this.setState({
+                currentDragZoom: offsetxy[0]
+            });
+        }
+        if (this.state.isPanning) {
+            const xy0 = this.state.initialPanPosition;
+            const timeOffset =
+                this.props.scale.invert(xy[0]).getTime() -
+                this.props.scale.invert(xy0[0]).getTime();
+
+            let newBegin = parseInt(this.state.initialPanBegin - timeOffset, 10);
+            let newEnd = parseInt(this.state.initialPanEnd - timeOffset, 10);
+            const duration = parseInt(this.state.initialPanEnd - this.state.initialPanBegin, 10);
+
+            if (this.props.minTime && newBegin < this.props.minTime.getTime()) {
+                newBegin = this.props.minTime.getTime();
+                newEnd = newBegin + duration;
+            }
+
+            if (this.props.maxTime && newEnd > this.props.maxTime.getTime()) {
+                newEnd = this.props.maxTime.getTime();
+                newBegin = newEnd - duration;
+            }
+
+            const newTimeRange = new TimeRange(newBegin, newEnd);
+            if (this.props.onZoom) {
+                this.props.onZoom(newTimeRange);
+            }
+        } else if (this.props.onMouseMove) {
+            const mousePosition = this.getOffsetCentralPosition(e);
+            if (this.props.onMouseMove) {
+                this.props.onMouseMove(mousePosition[0], mousePosition[1]);
+            }
+        }
+    }
+
+    /**
+     * Handle the interaction for the 'mouseup' and 'touchend' events
+     * @param e {MouseEvent | TouchEvent}
+     */
+    handleUserInteractionEnd(e) {
         document.removeEventListener("mouseover", this.handleMouseMove);
         document.removeEventListener("mouseup", this.handleMouseUp);
+        document.removeEventListener("touchmove", this.handleMouseMove, {
+            passive: false
+        });
+        document.removeEventListener("touchend", this.handleMouseUp);
 
         const offsetxy = this.getOffsetCentralPosition(e);
 
@@ -227,6 +251,13 @@ export default class EventHandler extends React.Component {
             this.state.initialPanPosition && Math.abs(x - this.state.initialPanPosition[0]) > 2;
         const isDragging =
             this.state.initialDragZoom && Math.abs(offsetxy[0] - this.state.initialDragZoom) > 2;
+
+        // Added to allow just a touch event to update the tracker position.  Touch events will always
+        // be panning/dragging in the "handleUserInteractionMove" function, and this will never be triggered
+        // there.
+        if (this.props.onMouseMove && !isPanning && !isDragging) {
+            this.props.onMouseMove(offsetxy[0], offsetxy[1]);
+        }
 
         if (this.props.onMouseClick && !isPanning && !isDragging) {
             this.props.onMouseClick(offsetxy[0], offsetxy[1], e);
@@ -272,6 +303,66 @@ export default class EventHandler extends React.Component {
         }
     }
 
+    //
+    // Event handlers
+    //
+
+    handleScrollWheel(e) {
+        if (!this.props.enablePanZoom && !this.props.enableDragZoom) {
+            return;
+        }
+
+        e.preventDefault();
+
+        const SCALE_FACTOR = 0.001;
+        let scale = 1 + e.deltaY * SCALE_FACTOR;
+        if (scale > 3) {
+            scale = 3;
+        }
+        if (scale < 0.1) {
+            scale = 0.1;
+        }
+
+        const xy = this.getOffsetCentralPosition(e);
+
+        const begin = this.props.scale.domain()[0].getTime();
+        const end = this.props.scale.domain()[1].getTime();
+        const center = this.props.scale.invert(xy[0]).getTime();
+
+        this.triggerZoom(begin, end, center, scale);
+    }
+
+    handleMouseDown(e) {
+        if (!this.props.enablePanZoom && !this.props.enableDragZoom) {
+            return;
+        }
+
+        if (e.button === 2) {
+            return;
+        }
+
+        e.preventDefault();
+
+        this.handleUserInteractionStart(e);
+
+        return false;
+    }
+
+    handleMouseUp(e) {
+        if (!this.props.onMouseClick && !this.props.enablePanZoom && !this.props.enableDragZoom) {
+            return;
+        }
+
+        e.stopPropagation();
+
+        this.handleUserInteractionEnd(e);
+    }
+
+    /**
+     * Allow the functionality of "mouseout" to be unique just to mouse interaction.
+     * There is no touch equivalent here, and downstream property binding won't care.
+     * @param e {MouseEvent}
+     */
     handleMouseOut(e) {
         e.preventDefault();
 
@@ -282,45 +373,8 @@ export default class EventHandler extends React.Component {
 
     handleMouseMove(e) {
         e.preventDefault();
-        const x = e.pageX;
-        const y = e.pageY;
-        const xy = [Math.round(x), Math.round(y)];
-        const offsetxy = this.getOffsetCentralPosition(e);
-        if (this.state.isDragging) {
-            this.setState({
-                currentDragZoom: offsetxy[0]
-            });
-        }
-        if (this.state.isPanning) {
-            const xy0 = this.state.initialPanPosition;
-            const timeOffset =
-                this.props.scale.invert(xy[0]).getTime() -
-                this.props.scale.invert(xy0[0]).getTime();
 
-            let newBegin = parseInt(this.state.initialPanBegin - timeOffset, 10);
-            let newEnd = parseInt(this.state.initialPanEnd - timeOffset, 10);
-            const duration = parseInt(this.state.initialPanEnd - this.state.initialPanBegin, 10);
-
-            if (this.props.minTime && newBegin < this.props.minTime.getTime()) {
-                newBegin = this.props.minTime.getTime();
-                newEnd = newBegin + duration;
-            }
-
-            if (this.props.maxTime && newEnd > this.props.maxTime.getTime()) {
-                newEnd = this.props.maxTime.getTime();
-                newBegin = newEnd - duration;
-            }
-
-            const newTimeRange = new TimeRange(newBegin, newEnd);
-            if (this.props.onZoom) {
-                this.props.onZoom(newTimeRange);
-            }
-        } else if (this.props.onMouseMove) {
-            const mousePosition = this.getOffsetCentralPosition(e);
-            if (this.props.onMouseMove) {
-                this.props.onMouseMove(mousePosition[0], mousePosition[1]);
-            }
-        }
+        this.handleUserInteractionMove(e);
     }
 
     handleContextMenu(e) {
@@ -332,55 +386,73 @@ export default class EventHandler extends React.Component {
     }
 
     /**
-     * Update pinch/zoom status if there is more than 1 touch point active.
+     * Update pinch/zoom status if there is more than 1 touch point active. If a single touch point is active,
+     * opt into the pan/zoom behavior flow.
      * @param e {TouchEvent}
      */
     handleTouchStart(e) {
-        if (e.touches && e.touches.length > 1) {
-            // Notify that a pinch zoom has started
-            if (this.props.onPinchZoomStart && !this.state.isPinchZooming) {
-                this.setState({
-                    isPinchZooming: true
-                });
-                this.props.onPinchZoomStart();
+        const { touches } = e;
+
+        if (touches) {
+            if (touches.length > 1) {
+                // Notify that a pinch zoom has started
+                if (this.props.onPinchZoomStart && !this.state.isPinchZooming) {
+                    this.setState({
+                        isPinchZooming: true
+                    });
+                    this.props.onPinchZoomStart();
+                }
+                // Need to end any previous interaction to kill any open event handlers
+                this.handleUserInteractionEnd(e);
+            } else if (touches.length === 1) {
+                if (!this.props.enablePanZoom && !this.props.enableDragZoom) {
+                    return;
+                }
+                this.handleUserInteractionStart(touches.item(0));
             }
         }
     }
 
     /**
      * This function implements a 2-pointer horizontal pinch/zoom gesture. If the distance between the two pointers
-     * has increased, zoom in.  If the distance has decreased, zoom out.
+     * has increased, zoom in.  If the distance has decreased, zoom out. If a single touch point is being used, opt
+     * into the pan/zoom movement behavior flow.
      * @param e {TouchEvent}
      */
     handleTouchMove(e) {
         // NOTE: Preventing default here so that the mousemove event is not fired
         e.preventDefault();
+        const { touches } = e;
 
-        // If 2+ pointers are down, check for pinch gestures using the first two
-        if (e.touches && e.touches.length >= 2) {
-            // Calculate the distance between the two pointers
-            const curDiff = Math.abs(e.touches.item(0).clientX - e.touches.item(1).clientX);
-            if (this.previousDiff > 0) {
-                // If zoomDiff is negative, zooming IN.  Positive, zooming OUT.
-                const zoomDiff = this.previousDiff - curDiff;
-                // Use a 10x greater scale value to calculate zoom since pinching is 10x slower (roughly)
-                const SCALE_FACTOR = 0.01;
-                let scale = 1 + zoomDiff * SCALE_FACTOR;
-                if (scale > 3) {
-                    scale = 3;
+        if (touches) {
+            // If 2+ pointers are down, check for pinch gestures using the first two
+            if (touches.length >= 2) {
+                // Calculate the distance between the two pointers
+                const curDiff = Math.abs(touches.item(0).clientX - touches.item(1).clientX);
+                if (this.previousDiff > 0) {
+                    // If zoomDiff is negative, zooming IN.  Positive, zooming OUT.
+                    const zoomDiff = this.previousDiff - curDiff;
+                    // Use a 10x greater scale value to calculate zoom since pinching is 10x slower (roughly)
+                    const SCALE_FACTOR = 0.01;
+                    let scale = 1 + zoomDiff * SCALE_FACTOR;
+                    if (scale > 3) {
+                        scale = 3;
+                    }
+                    if (scale < 0.1) {
+                        scale = 0.1;
+                    }
+                    // Use the first event in the cache as a reference for event pageX placement to trigger the zoom.
+                    const xy = this.getOffsetCentralPosition(touches.item(0));
+                    const begin = this.props.scale.domain()[0].getTime();
+                    const end = this.props.scale.domain()[1].getTime();
+                    const center = this.props.scale.invert(xy[0]).getTime();
+                    this.triggerZoom(begin, end, center, scale);
                 }
-                if (scale < 0.1) {
-                    scale = 0.1;
-                }
-                // Use the first event in the cache as a reference for event pageX placement to trigger the zoom.
-                const xy = this.getOffsetCentralPosition(e.touches.item(0));
-                const begin = this.props.scale.domain()[0].getTime();
-                const end = this.props.scale.domain()[1].getTime();
-                const center = this.props.scale.invert(xy[0]).getTime();
-                this.triggerZoom(begin, end, center, scale);
+                // Cache the distance for the next move event
+                this.previousDiff = curDiff;
+            } else if (touches.length === 1) {
+                this.handleUserInteractionMove(touches.item(0));
             }
-            // Cache the distance for the next move event
-            this.previousDiff = curDiff;
         }
     }
 
@@ -389,6 +461,8 @@ export default class EventHandler extends React.Component {
      * @param e {TouchEvent}
      */
     handleTouchDone(e) {
+        const { touches } = e;
+
         // Notify that the pinch zoom has stopped
         if (this.props.onPinchZoomEnd && this.state.isPinchZooming) {
             this.setState({
@@ -397,8 +471,9 @@ export default class EventHandler extends React.Component {
             this.props.onPinchZoomEnd();
         }
         // If the number of pointers down is less than two then reset diff tracker
-        if (e.touches && e.touches.length < 2) {
+        if (touches && touches.length < 2) {
             this.previousDiff = -1;
+            this.handleUserInteractionEnd(e);
         }
     }
 
