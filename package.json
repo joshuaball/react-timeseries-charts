@@ -1,6 +1,6 @@
 {
   "name": "@inductiveautomation/react-timeseries-charts",
-  "version": "0.16.5-ia",
+  "version": "0.16.6-ia",
   "description": "Declarative timeseries charts",
   "keywords": [
     "d3",
