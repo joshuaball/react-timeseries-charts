@@ -23,10 +23,10 @@ const defaultStyle = {
         muted: { stroke: "steelblue", fill: "none", opacity: 0.4, strokeWidth: 1 }
     },
     label: {
-        normal: { fontSize: "normal", color: "#333" },
-        highlighted: { fontSize: "normal", color: "#222" },
-        selected: { fontSize: "normal", color: "#333" },
-        muted: { fontSize: "normal", color: "#333", opacity: 0.4 }
+        normal: { opacity: 1 },
+        highlighted: { opacity: 1 },
+        selected: { opacity: 1 },
+        muted: { opacity: 0.4 }
     },
     value: {
         normal: { fontSize: "normal", color: "#333" },
@@ -101,12 +101,6 @@ const defaultStyle = {
         selected: {...styleSymbol},
         muted: {...styleSymbol}
       },
-      label: {
-        normal: {...labelStyle},
-        highlighted: {...labelStyle},
-        selected: {...labelStyle},
-        muted: {...labelStyle}
-      },
       value: {
         normal: {...valueStyle},
         highlighted: {...valueStyle},
@@ -124,10 +118,7 @@ const defaultStyle = {
  * is either a swatch, dot or line. For a line, you'd want to
  * provide the SVG <line> properties, for a swatch you'd provide
  * the SVG <rect> properties and for a dot the <ellipse> properties.
- *  - labelStyle is the main label for the legend item. It is a
- *  SVG <text> element, so you can control the font properties.
- *  - valueStyle is the optional value. As with the labelStyle you
- *  this is an SVG <text> element.
+ *  - valueStyle is the optional value.
  *
  * Finally, you can provide a function to the `style` prop. This
  * is similar to providing an object, except your function will
@@ -203,7 +194,7 @@ class LegendItem extends React.Component {
     }
 
     render() {
-        const { symbolStyle, labelStyle, valueStyle, itemKey, symbolType } = this.props;
+        const { symbolStyle, valueStyle, itemKey, symbolType, labelStyle } = this.props;
 
         let symbol;
         switch (symbolType) {
@@ -243,12 +234,20 @@ class LegendItem extends React.Component {
                 >
                     <div style={{ width: "20px" }}>{symbol}</div>
                     <div
+                        className="legend-item-container"
                         style={{
                             display: "flex",
                             flexDirection: "column"
                         }}
                     >
-                        <div style={labelStyle}>{this.props.label}</div>
+                        <div
+                            style={{
+                                ...labelStyle,
+                                marginRight: "10px"
+                            }}
+                        >
+                            {this.props.label}
+                        </div>
                         <div style={valueStyle}>{this.props.value}</div>
                     </div>
                 </div>
@@ -278,7 +277,7 @@ export default class Legend extends React.Component {
     }
 
     /**
-     * For each category item we get the users stle preference. This
+     * For each category item we get the users style preference. This
      * can be supplied in a number of ways:
      *  * Typically you would get the legend stle from a Style instance
      *  * Alternatively, you can pass in a style object which has your
@@ -296,6 +295,7 @@ export default class Legend extends React.Component {
                 style = this.props.style ? this.props.style[category.key] : defaultStyle;
             }
         }
+
         return style;
     }
 
@@ -337,16 +337,6 @@ export default class Legend extends React.Component {
         );
     }
 
-    labelStyle(category) {
-        const styleMap = this.providedStyle(category);
-        const styleMode = this.styleMode(category);
-        return merge(
-            true,
-            defaultStyle[styleMode],
-            styleMap.label ? styleMap.label[styleMode] : {}
-        );
-    }
-
     valueStyle(category) {
         const styleMap = this.providedStyle(category);
         const styleMode = this.styleMode(category);
@@ -357,13 +347,19 @@ export default class Legend extends React.Component {
         );
     }
 
+    labelStyle(category) {
+        const styleMode = this.styleMode(category);
+        return defaultStyle.label[styleMode];
+    }
+
     render() {
-        const { type = "swatch", symbolWidth, symbolHeight } = this.props;
+        const { type = "swatch", symbolWidth, symbolHeight, legendStyle } = this.props;
         const items = this.props.categories.map(category => {
             const { key, label, value, symbolType = type } = category;
             const symbolStyle = this.symbolStyle(category, symbolType);
-            const labelStyle = this.labelStyle(category);
             const valueStyle = this.valueStyle(category);
+            const labelStyle = this.labelStyle(category);
+
             return (
                 <LegendItem
                     key={key}
@@ -375,39 +371,57 @@ export default class Legend extends React.Component {
                     symbolWidth={symbolWidth}
                     symbolHeight={symbolHeight}
                     symbolStyle={symbolStyle}
-                    labelStyle={labelStyle}
                     valueStyle={valueStyle}
+                    labelStyle={labelStyle}
                     onSelectionChange={this.props.onSelectionChange}
                     onHighlightChange={this.props.onHighlightChange}
                 />
             );
         });
 
-        const align = this.props.align === "left" ? "flex-start" : "flex-end";
+        let align;
+        switch (this.props.align) {
+            case "center":
+                align = "center";
+                break;
+            case "left":
+                align = "flex-start";
+                break;
+            case "right":
+            default:
+                align = "flex-end";
+                break;
+        }
 
         if (this.props.stack) {
+            const mainStyle = Object.assign(
+                {
+                    display: "flex",
+                    justifyContent: align,
+                    flexDirection: "column"
+                },
+                legendStyle
+            );
+            const mainClassName = `legend-component ${this.props.legendClassName}`;
+
             return (
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: align,
-                        flexDirection: "column",
-                        marginBottom: this.props.marginBottom
-                    }}
-                >
+                <div style={mainStyle} className={mainClassName}>
                     {items}
                 </div>
             );
         } else {
+            const mainStyle = Object.assign(
+                {
+                    display: "flex",
+                    justifyContent: align,
+                    flexWrap: "wrap"
+                },
+                legendStyle
+            );
+            const mainClassName = `legend-component ${this.props.legendClassName}`;
+
             return (
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: align,
-                        flexWrap: "wrap",
-                        marginBottom: this.props.marginBottom
-                    }}
-                >
+                <div style={mainStyle} className={mainClassName}>
                     {items}
                 </div>
             );
@@ -423,11 +437,24 @@ Legend.propTypes = {
     type: PropTypes.oneOf(["swatch", "line", "dot"]),
 
     /**
-     * Alignment of the legend within the available space. Either left or right.
+     * Alignment of the legend within the available space. Either left, right, or center.
      */
-    align: PropTypes.oneOf(["left", "right"]),
+    align: PropTypes.oneOf(["left", "right", "center"]),
 
+    /**
+     * Style to apply to the legend items
+     */
     style: PropTypes.oneOfType([PropTypes.object, PropTypes.func, PropTypes.instanceOf(Styler)]),
+
+    /**
+     * A style override that can be used to style the legend as a whole.
+     */
+    legendStyle: PropTypes.object,
+
+    /**
+     * A string containing classNames to be applied to the legend.
+     */
+    legendClassName: PropTypes.string,
 
     /**
      * The categories array specifies details and style for each item in the legend. For each item:
@@ -435,7 +462,6 @@ Legend.propTypes = {
      *  * "label" - (required) the displayed label
      *  * "style" - the swatch, dot, or line style. Typically you'd just
      *              specify {backgroundColor: "#1f77b4"}
-     *  * "labelStyle" - the label style
      *  * "disabled" - a disabled state
      *
      * ```
@@ -452,8 +478,7 @@ Legend.propTypes = {
             key: PropTypes.string.isRequired, // eslint-disable-line
             label: PropTypes.string.isRequired, // eslint-disable-line
             disabled: PropTypes.bool, // eslint-disable-line
-            style: PropTypes.object, // eslint-disable-line
-            labelStyle: PropTypes.object // eslint-disable-line
+            style: PropTypes.object // eslint-disable-line
         })
     ).isRequired,
 
@@ -492,21 +517,16 @@ Legend.propTypes = {
     /**
      * Defines whether to stack legend items vertically or not
      */
-    stack: PropTypes.bool,
-
-    /**
-     * The margin at the bottom. Default value is 20px
-     */
-    marginBottom: PropTypes.string
+    stack: PropTypes.bool
 };
 
 Legend.defaultProps = {
     style: {},
-    labelStyle: {},
+    legendStyle: {},
+    legendClassName: "",
     type: "swatch", // or "line" or "dot"
     align: "left",
     symbolWidth: 16,
     symbolHeight: 16,
-    stack: false,
-    marginBottom: "20px"
+    stack: false
 };
