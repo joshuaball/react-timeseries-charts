@@ -56,109 +56,86 @@ const defaultStyle = {
     }
 };
 
-const millisecondSecond = 1000;
-const millisecondMinute = 60000;
-const millisecondHour = 3600000;
-const milliSecondDay = 86400000;
-const millisecondMonth = 2592000000; // Rough; based on 30 days‬
-const millisecondYear = 31104000000; // Rough; based on 12, 30-day months
+// Millisecond value constants
+const MILLISECOND_SECOND = 1000;
+const MILLISECOND_MINUTE = 60000;
+const MILLISECOND_HOUR = 3600000;
+const MILLISECOND_DAY = 86400000;
+const MILLISECOND_MONTH = 2592000000; // Rough; based on 30 days‬
+const MILLISECOND_YEAR = 31536000000; // Rough; based on 365 days (leap year not accounted for)
 
+// Time formats
 const formatMillisecond = timeFormat(".%L");
 const formatSecond = timeFormat(":%S");
 const formatMinute = timeFormat("%I:%M");
 const formatHour = timeFormat("%I %p");
+const formatDayHour = timeFormat("%a %d, %I %p");
 const formatDay = timeFormat("%a %d");
 const formatWeek = timeFormat("%b %d");
 const formatMonth = timeFormat("%B");
+const formatYearMonth = timeFormat("%b %Y");
 const formatYear = timeFormat("%Y");
 
 /**
- * Return a time format based on the smallest time difference between the timestamp and its value as milliseconds,
- * seconds, minutes, etc.  This is fed the results from the smoothing function.
- * @param date
+ * Return a time format based on the difference of the start/end values of the passed in TimeRange. Time formats have
+ * a bit of overlap and take over when they look roughly correct when graphed without too much duplication of time
+ * identifiers (i.e. Trying to limit "January, January, January..." as much as possible in favor of "Jan 05, Jan 15,
+ * Jan 22, Jan 31...").
+ * @param timeRange
  */
-function multiTimeFormat(date) {
-    const value = (timeSecond(date) < date
-        ? formatMillisecond
-        : timeMinute(date) < date
-        ? formatSecond
-        : timeHour(date) < date
-        ? formatMinute
-        : timeDay(date) < date
-        ? formatHour
-        : timeMonth(date) < date
-        ? timeWeek(date) < date
-            ? formatDay
-            : formatWeek
-        : timeYear(date) < date
-        ? formatMonth
-        : formatYear)(date);
-
-    // console.log('milli', timeSecond(date), date, date.valueOf(), timeSecond(date) < date);
-    // console.log('minute', timeMinute(date), date, date.valueOf(), timeMinute(date) < date);
-    // console.log('hour', timeHour(date), date, date.valueOf(), timeHour(date) < date);
-    // console.log('day', timeDay(date), date, date.valueOf(), timeDay(date) < date);
-    // console.log('month', timeMonth(date), date, date.valueOf(), timeMonth(date) < date);
-    // console.log('year', timeYear(date), date, date.valueOf(), timeYear(date) < date);
-    //
-    // console.log('VALUE', value);
-
-    return value;
+function adjustableTimeFormat(timeRange) {
+    const diff = timeRangeDiff(timeRange);
+    const buffer = 10;
+    switch (true) {
+        case diff < MILLISECOND_SECOND:
+            // Format as millisecond
+            return formatMillisecond;
+            break;
+        case diff < MILLISECOND_MINUTE * (buffer / 7):
+            // Format as second
+            return formatSecond;
+            break;
+        case diff <= MILLISECOND_HOUR * buffer:
+            // Format as minute
+            return formatMinute;
+            break;
+        case diff <= MILLISECOND_DAY * (buffer / 7):
+            // Format as hour
+            return formatHour;
+            break;
+        case diff <= MILLISECOND_DAY * buffer:
+            // Format as day/hour
+            return formatDayHour;
+            break;
+        case diff <= MILLISECOND_MONTH * (buffer / 3):
+            // Format as day
+            return formatDay;
+            break;
+        case diff <= MILLISECOND_MONTH * buffer:
+            // Format as week
+            return formatWeek;
+            break;
+        case diff <= MILLISECOND_YEAR * 1.5:
+            // Format as month
+            return formatMonth;
+            break;
+        case diff <= MILLISECOND_YEAR * 5:
+            // Format as year/month
+            return formatYearMonth;
+            break;
+        default:
+            // Format as year
+            return formatYear;
+            break;
+    }
 }
 
 /**
- * Round down the last piece of the timestamp (milliseconds, seconds, minutes, etc) based on the overall TimeRange
- * in place and return a new array.
- * @param dateArray
+ * Return a millisecond difference between the start and end values of a timeRange.
  * @param timeRange
  */
-function smoothOutTimeEntries(dateArray, timeRange) {
-    const timeRangeDiff = timeRange.end().valueOf() - timeRange.begin().valueOf();
-
-    console.log("TIME DIFF", timeRangeDiff);
-
-    return dateArray.map(date => {
-        switch (true) {
-            case timeRangeDiff < millisecondSecond:
-                // Less that a second, return timestamp as is (precise to the millisecond)
-                console.log("LESS THAN A SECOND");
-                return date;
-                break;
-            case timeRangeDiff < millisecondMinute:
-                // Less that a minute (dealing with seconds), return timestamp with milliseconds removed (precise to
-                // the second)
-                console.log("LESS THAN A MINUTE");
-                return new Date(date.setMilliseconds(0));
-                break;
-            case timeRangeDiff <= millisecondHour:
-                // Less than an hour (dealing with minutes), return timestamp with seconds removed (precise to the minute)
-                console.log("LESS THAN AN HOUR");
-                return new Date(date.setSeconds(0, 0));
-                break;
-            case timeRangeDiff <= milliSecondDay:
-                console.log("LESS THAN A DAY");
-                // Less than an day (dealing with hours), return timestamp with minutes removed (precise to the hour)
-                return new Date(date.setMinutes(0, 0, 0));
-                break;
-            case timeRangeDiff <= millisecondMonth:
-                console.log("LESS THAN A MONTH");
-                // Less than a month (dealing with days), return timestamp with hours removed (precise to the day)
-                return new Date(date.setHours(0, 0, 0, 0));
-                break;
-            case timeRangeDiff <= millisecondYear:
-                console.log("LESS THAN A YEAR");
-                // Less than a year (dealing with months), return timestamp with days removed (precise to the month)
-                const monthHoursRemoved = new Date(date.setHours(0, 0, 0, 0));
-                return new Date(monthHoursRemoved.setDate(1));
-                break;
-            default:
-                console.log("GRATER THAN A YEAR");
-                // More than a year (dealing with years), return timestamp with months removed (precise to the year)
-                const yearHoursRemoved = new Date(date.setHours(0, 0, 0, 0));
-                return new Date(yearHoursRemoved.setMonth(0, 1));
-                break;
-        }
-    });
+function timeRangeDiff(timeRange) {
+    return timeRange.end().valueOf() - timeRange.begin().valueOf();
 }
 
 /**
@@ -224,60 +201,43 @@ export default class TimeAxis extends React.Component {
             for (let i = 1; i <= tickCount; i++) {
                 tickValues.push(new Date(beginningTimestamp + timeIteration * i));
             }
-            tickValues = smoothOutTimeEntries(tickValues, timeRange);
-
-            // format = "day";
-
-            // console.log('TICK COUNT', tickCount);
-            // console.log('FORMAT', format);
-            // console.log('TICK VALUES', tickValues);
 
             if (format === "day") {
                 axis = axisBottom(scale)
-                    // .tickArguments([utc ? utcDay : timeDay, 1, tickCount])
                     .tickValues(tickValues)
                     .tickFormat(timeFormat("%d"))
                     .tickSizeOuter(0);
             } else if (format === "month") {
                 axis = axisBottom(scale)
-                    // .tickArguments([utc ? utcMonth : timeMonth, 1, tickCount])
                     .tickValues(tickValues)
                     .tickFormat(timeFormat("%B"))
                     .tickSizeOuter(0);
             } else if (format === "year") {
                 axis = axisBottom(scale)
-                    // .tickArguments([utc ? utcYear : timeYear, 1, tickCount])
                     .tickValues(tickValues)
                     .tickFormat(timeFormat("%Y"))
                     .tickSizeOuter(0);
             } else if (format === "relative") {
                 axis = axisBottom(scale)
-                    // .ticks(tickCount)
                     .tickValues(tickValues)
                     .tickFormat(d => moment.duration(+d).format())
                     .tickSizeOuter(0);
             } else if (_.isString(format)) {
                 axis = axisBottom(scale)
-                    // .ticks(tickCount)
                     .tickValues(tickValues)
                     .tickFormat(timeFormat(format))
                     .tickSizeOuter(0);
             } else if (_.isFunction(format)) {
                 axis = axisBottom(scale)
-                    // .ticks(tickCount)
                     .tickValues(tickValues)
                     .tickFormat(format)
                     .tickSizeOuter(0);
             } else {
-                console.log("AXIS");
-
+                const timeFormat = adjustableTimeFormat(timeRange);
                 axis = axisBottom(scale)
-                    // .ticks(tickCount)
-                    // .ticks(timeHour.every(5))
                     .tickValues(tickValues)
-                    // .tickArguments([tickCount])
-                    .tickFormat(multiTimeFormat);
-                // .tickSize(0);
+                    .tickFormat(timeFormat)
+                    .tickSizeOuter(0);
             }
         } else {
             if (format === "day") {
@@ -308,7 +268,7 @@ export default class TimeAxis extends React.Component {
                     .tickFormat(format)
                     .tickSizeOuter(0);
             } else {
-                axis = axisBottom(scale).tickSize(0);
+                axis = axisBottom(scale).tickSizeOuter(0);
             }
         }
 
