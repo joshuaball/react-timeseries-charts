@@ -198,8 +198,11 @@ export default class TimeAxis extends React.Component {
             const endTimestamp = timeRange.end().valueOf();
             const timeIteration = (endTimestamp - beginningTimestamp) / tickCount;
             let tickValues = [];
-            for (let i = 1; i <= tickCount; i++) {
-                tickValues.push(new Date(beginningTimestamp + timeIteration * i));
+            const startingPosition = timeIteration / 2;
+            for (let i = 0; i < tickCount; i++) {
+                tickValues.push(
+                    new Date(beginningTimestamp + startingPosition + timeIteration * i)
+                );
             }
 
             if (format === "day") {
