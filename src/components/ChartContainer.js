@@ -545,6 +545,7 @@ export default class ChartContainer extends React.Component {
                     showGrid={this.props.showGrid}
                     gridHeight={chartsHeight}
                     tickCount={this.props.timeAxisTickCount}
+                    timeRange={this.props.timeRange}
                 />
             </g>
         );
