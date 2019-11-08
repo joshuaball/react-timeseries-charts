@@ -17,8 +17,20 @@ import PropTypes from "prop-types";
 import { axisBottom } from "d3-axis";
 import { select } from "d3-selection";
 import "d3-selection-multi";
-import { timeDay, utcDay, timeMonth, utcMonth, timeYear, utcYear } from "d3-time";
+import {
+    timeSecond,
+    timeMinute,
+    timeHour,
+    timeDay,
+    timeWeek,
+    timeMonth,
+    timeYear,
+    utcDay,
+    utcMonth,
+    utcYear
+} from "d3-time";
 import { timeFormat } from "d3-time-format";
+import { TimeRange } from "pondjs";
 
 import "moment-duration-format";
 
@@ -43,6 +55,88 @@ const defaultStyle = {
         stroke: "#C0C0C0"
     }
 };
+
+// Millisecond value constants
+const MILLISECOND_SECOND = 1000;
+const MILLISECOND_MINUTE = 60000;
+const MILLISECOND_HOUR = 3600000;
+const MILLISECOND_DAY = 86400000;
+const MILLISECOND_MONTH = 2592000000; // Rough; based on 30 days‬
+const MILLISECOND_YEAR = 31536000000; // Rough; based on 365 days (leap year not accounted for)
+
+// Time formats
+const formatMillisecond = timeFormat(".%L");
+const formatSecond = timeFormat(":%S");
+const formatMinute = timeFormat("%I:%M");
+const formatHour = timeFormat("%I %p");
+const formatDayHour = timeFormat("%a %d, %I %p");
+const formatDay = timeFormat("%a %d");
+const formatWeek = timeFormat("%b %d");
+const formatMonth = timeFormat("%B");
+const formatYearMonth = timeFormat("%b %Y");
+const formatYear = timeFormat("%Y");
+
+/**
+ * Return a time format based on the difference of the start/end values of the passed in TimeRange. Time formats have
+ * a bit of overlap and take over when they look roughly correct when graphed without too much duplication of time
+ * identifiers (i.e. Trying to limit "January, January, January..." as much as possible in favor of "Jan 05, Jan 15,
+ * Jan 22, Jan 31...").
+ * @param timeRange
+ */
+function adjustableTimeFormat(timeRange) {
+    const diff = timeRangeDiff(timeRange);
+    const buffer = 10;
+    switch (true) {
+        case diff < MILLISECOND_SECOND:
+            // Format as millisecond
+            return formatMillisecond;
+            break;
+        case diff < MILLISECOND_MINUTE * (buffer / 7):
+            // Format as second
+            return formatSecond;
+            break;
+        case diff <= MILLISECOND_HOUR * buffer:
+            // Format as minute
+            return formatMinute;
+            break;
+        case diff <= MILLISECOND_DAY * (buffer / 7):
+            // Format as hour
+            return formatHour;
+            break;
+        case diff <= MILLISECOND_DAY * buffer:
+            // Format as day/hour
+            return formatDayHour;
+            break;
+        case diff <= MILLISECOND_MONTH * (buffer / 3):
+            // Format as day
+            return formatDay;
+            break;
+        case diff <= MILLISECOND_MONTH * buffer:
+            // Format as week
+            return formatWeek;
+            break;
+        case diff <= MILLISECOND_YEAR * 1.5:
+            // Format as month
+            return formatMonth;
+            break;
+        case diff <= MILLISECOND_YEAR * 5:
+            // Format as year/month
+            return formatYearMonth;
+            break;
+        default:
+            // Format as year
+            return formatYear;
+            break;
+    }
+}
+
+/**
+ * Return a millisecond difference between the start and end values of a timeRange.
+ * @param timeRange
+ */
+function timeRangeDiff(timeRange) {
+    return timeRange.end().valueOf() - timeRange.begin().valueOf();
+}
 
 /**
  * Renders a horizontal time axis. This is used internally by the ChartContainer
@@ -95,44 +189,58 @@ export default class TimeAxis extends React.Component {
         const tickSize = showGrid ? -gridHeight : 10;
         const utc = this.props.utc;
         const tickCount = this.props.tickCount;
+        const timeRange = this.props.timeRange;
         const style = this.mergeStyles(this.props.style);
         const { tickStyle, valueStyle } = style;
 
         if (tickCount > 0) {
+            const beginningTimestamp = timeRange.begin().valueOf();
+            const endTimestamp = timeRange.end().valueOf();
+            const timeIteration = (endTimestamp - beginningTimestamp) / tickCount;
+            let tickValues = [];
+            const startingPosition = timeIteration / 2;
+            for (let i = 0; i < tickCount; i++) {
+                tickValues.push(
+                    new Date(beginningTimestamp + startingPosition + timeIteration * i)
+                );
+            }
+
             if (format === "day") {
                 axis = axisBottom(scale)
-                    .tickArguments([utc ? utcDay : timeDay, 1, tickCount])
+                    .tickValues(tickValues)
                     .tickFormat(timeFormat("%d"))
                     .tickSizeOuter(0);
             } else if (format === "month") {
                 axis = axisBottom(scale)
-                    .tickArguments([utc ? utcMonth : timeMonth, 1, tickCount])
+                    .tickValues(tickValues)
                     .tickFormat(timeFormat("%B"))
                     .tickSizeOuter(0);
             } else if (format === "year") {
                 axis = axisBottom(scale)
-                    .tickArguments([utc ? utcYear : timeYear, 1, tickCount])
+                    .tickValues(tickValues)
                     .tickFormat(timeFormat("%Y"))
                     .tickSizeOuter(0);
             } else if (format === "relative") {
                 axis = axisBottom(scale)
-                    .ticks(tickCount)
+                    .tickValues(tickValues)
                     .tickFormat(d => moment.duration(+d).format())
                     .tickSizeOuter(0);
             } else if (_.isString(format)) {
                 axis = axisBottom(scale)
-                    .ticks(tickCount)
+                    .tickValues(tickValues)
                     .tickFormat(timeFormat(format))
                     .tickSizeOuter(0);
             } else if (_.isFunction(format)) {
                 axis = axisBottom(scale)
-                    .ticks(tickCount)
+                    .tickValues(tickValues)
                     .tickFormat(format)
                     .tickSizeOuter(0);
             } else {
+                const timeFormat = adjustableTimeFormat(timeRange);
                 axis = axisBottom(scale)
-                    .ticks(tickCount)
-                    .tickSize(0);
+                    .tickValues(tickValues)
+                    .tickFormat(timeFormat)
+                    .tickSizeOuter(0);
             }
         } else {
             if (format === "day") {
@@ -163,7 +271,7 @@ export default class TimeAxis extends React.Component {
                     .tickFormat(format)
                     .tickSizeOuter(0);
             } else {
-                axis = axisBottom(scale).tickSize(0);
+                axis = axisBottom(scale).tickSizeOuter(0);
             }
         }
 
@@ -235,5 +343,6 @@ TimeAxis.propTypes = {
         values: PropTypes.object, // eslint-disable-line
         axis: PropTypes.object // eslint-disable-line
     }),
-    tickCount: PropTypes.number
+    tickCount: PropTypes.number,
+    timeRange: PropTypes.instanceOf(TimeRange)
 };
