@@ -25,31 +25,6 @@ import { scaleAsString } from "../js/util";
 
 const MARGIN = 0;
 
-const defaultStyle = {
-    label: {
-        stroke: "none",
-        fill: "#8B7E7E", // Default label color
-        fontWeight: 100,
-        fontSize: 12,
-        font: '"Goudy Bookletter 1911", sans-serif"'
-    },
-    values: {
-        stroke: "none",
-        fill: "#8B7E7E", // Default value color
-        fontWeight: 100,
-        fontSize: 11,
-        font: '"Goudy Bookletter 1911", sans-serif"'
-    },
-    ticks: {
-        fill: "none",
-        stroke: "#C0C0C0"
-    },
-    axis: {
-        fill: "none",
-        stroke: "#C0C0C0"
-    }
-};
-
 /**
  * The `YAxis` widget displays a vertical axis to the left or right
  * of the charts. A `YAxis` always appears within a `ChartRow`, from
@@ -201,43 +176,39 @@ export default class YAxis extends React.Component {
         }
     }
 
-    mergeStyles(style) {
+    retrieveStyles(style) {
         return {
-            labelStyle: merge(
-                true,
-                defaultStyle.label,
-                this.props.style.label ? this.props.style.label : {}
-            ),
-            valueStyle: merge(
-                true,
-                defaultStyle.values,
-                this.props.style.values ? this.props.style.values : {}
-            ),
-            axisStyle: merge(
-                true,
-                defaultStyle.axis,
-                this.props.style.axis ? this.props.style.axis : {}
-            ),
-            tickStyle: merge(
-                true,
-                defaultStyle.ticks,
-                this.props.style.ticks ? this.props.style.ticks : {}
-            )
+            labelStyle: { ...style.label },
+            valueStyle: { ...style.values },
+            axisStyle: { ...style.axis },
+            tickStyle: { ...style.ticks }
         };
     }
 
     postSelect(style, hideAxisLine, height) {
-        const { valueStyle, tickStyle, axisStyle } = style;
+        const { valueStyle, tickStyle, axisStyle } = this.retrieveStyles(style);
+        const tickClasses =
+            `${this.props.baseStyleClassRoot}yAxis__ticks ` + (tickStyle.classes || "");
+        const valueClasses =
+            `${this.props.baseStyleClassRoot}yAxis__values ` + (valueStyle.classes || "");
+        const axisClasses =
+            `${this.props.baseStyleClassRoot}yAxis__axis ` + (axisStyle.classes || "");
+        delete tickStyle.classes;
+        delete valueStyle.classes;
+        delete axisStyle.classes;
+
         select(ReactDOM.findDOMNode(this))
             .select("g")
             .selectAll(".tick")
             .select("text")
+            .classed(valueClasses, true)
             .styles(valueStyle);
 
         select(ReactDOM.findDOMNode(this))
             .select("g")
             .selectAll(".tick")
             .select("line")
+            .classed(tickClasses, true)
             .styles(tickStyle);
 
         select(ReactDOM.findDOMNode(this))
@@ -249,6 +220,7 @@ export default class YAxis extends React.Component {
             select(ReactDOM.findDOMNode(this))
                 .select("g")
                 .append("line")
+                .classed(axisClasses, true)
                 .styles(axisStyle)
                 .attr("x1", 0)
                 .attr("y1", 0)
@@ -322,8 +294,13 @@ export default class YAxis extends React.Component {
     ) {
         const yformat = this.yformat(fmt);
         const axis = align === "left" ? axisLeft : axisRight;
-        const style = this.mergeStyles(this.props.style);
-        const { labelStyle, valueStyle } = style;
+        const { labelStyle, valueStyle } = this.retrieveStyles(this.props.style);
+        const labelClasses =
+            `${this.props.baseStyleClassRoot}yAxis__label yaxislabel ` + (labelStyle.classes || "");
+        const valueClasses =
+            `${this.props.baseStyleClassRoot}yAxis__values ` + (valueStyle.classes || "");
+        delete labelStyle.classes;
+        delete valueStyle.classes;
         const tickSize = showGrid && this.props.isInnerAxis ? -chartExtent : 5;
         const x = align === "left" ? width - MARGIN : 0;
         const labelOffset =
@@ -352,18 +329,19 @@ export default class YAxis extends React.Component {
             .append("g")
             .attr("transform", `translate(${x},0)`)
             .attr("class", "yaxis")
+            .classed(valueClasses, true)
             .styles(valueStyle)
             .call(axisGenerator.tickSize(tickSize))
             .append("text")
             .text(label || this.props.label)
+            .classed(labelClasses, true)
             .styles(labelStyle)
             .attr("transform", "rotate(-90)")
-            .attr("class", "yaxislabel")
             .attr("y", labelOffset)
             .attr("dy", ".71em")
             .attr("text-anchor", "end");
 
-        this.postSelect(style, hideAxisLine, height);
+        this.postSelect(this.props.style, hideAxisLine, height);
     }
 
     updateAxis(
@@ -384,7 +362,6 @@ export default class YAxis extends React.Component {
     ) {
         const yformat = this.yformat(fmt);
         const axis = align === "left" ? axisLeft : axisRight;
-        const style = this.mergeStyles(this.props.style);
         const tickSize = showGrid && this.props.isInnerAxis ? -chartExtent : 5;
 
         const axisGenerator = this.generator(
@@ -409,7 +386,7 @@ export default class YAxis extends React.Component {
 
         this.updateLabel(label);
 
-        this.postSelect(style, hideAxisLine, height);
+        this.postSelect(this.props.style, hideAxisLine, height);
     }
 
     updateLabel(label) {
@@ -436,7 +413,8 @@ YAxis.defaultProps = {
     labelOffset: 0, // Offset the label position
     transition: 100, // Axis transition time
     width: 80,
-    style: defaultStyle
+    style: {},
+    baseStyleClassRoot: ""
 };
 
 YAxis.propTypes = {
@@ -556,5 +534,11 @@ YAxis.propTypes = {
     /**
      * The number of ticks
      */
-    tickCount: PropTypes.number
+    tickCount: PropTypes.number,
+
+    /**
+     * If specified, the base CSS class root used to build class names throughout the inner time series charting
+     * components.
+     */
+    baseStyleClassRoot: PropTypes.string
 };

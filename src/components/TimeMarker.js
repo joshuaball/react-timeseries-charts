@@ -21,9 +21,15 @@ import Label from "./Label";
 
 export default class TimeMarker extends React.Component {
     renderLine(posx) {
+        const lineStyles = { ...this.props.infoStyle.line };
+        const classes = lineStyles.classes || "";
+        const className = `${this.props.baseStyleClassRoot}xTrace__line ${classes}`;
+        delete lineStyles.classes;
+
         return (
             <line
-                style={this.props.infoStyle.line}
+                className={className}
+                style={lineStyles}
                 x1={posx}
                 y1={0}
                 x2={posx}
@@ -66,16 +72,24 @@ export default class TimeMarker extends React.Component {
     }
 
     renderInfoBox(posx) {
+        // Adding class containing base style to the xtrace box
+        const boxClassNames = this.props.infoStyle.box.classes || "";
+        const trackerBoxClasses = {
+            classes: `${this.props.baseStyleClassRoot}xTrace__box ${boxClassNames}`
+        };
         const w = this.props.infoWidth;
-
         const infoBoxProps = {
             align: "left",
             style: {
-                box: this.props.infoStyle.box,
+                box: {
+                    ...this.props.infoStyle.box,
+                    ...trackerBoxClasses
+                },
                 label: this.props.infoStyle.label
             },
             width: this.props.infoWidth,
-            height: this.props.infoHeight
+            height: this.props.infoHeight,
+            baseStyleClassRoot: this.props.baseStyleClassRoot
         };
 
         if (this.props.infoValues) {
@@ -203,7 +217,13 @@ TimeMarker.propTypes = {
     /**
      * [Internal] The height supplied by the surrounding ChartContainer
      */
-    height: PropTypes.number
+    height: PropTypes.number,
+
+    /**
+     * If specified, the base CSS class root used to build class names throughout the inner time series charting
+     * components.
+     */
+    baseStyleClassRoot: PropTypes.string
 };
 
 TimeMarker.defaultProps = {
@@ -211,22 +231,8 @@ TimeMarker.defaultProps = {
     showInfoBox: true,
     showLine: true,
     showTime: true,
-    infoStyle: {
-        line: {
-            stroke: "#999",
-            cursor: "crosshair",
-            pointerEvents: "none"
-        },
-        box: {
-            fill: "white",
-            opacity: 0.9,
-            stroke: "#999",
-            pointerEvents: "none"
-        },
-        dot: {
-            fill: "#999"
-        }
-    },
+    infoStyle: {},
     infoWidth: 90,
-    infoHeight: 25
+    infoHeight: 25,
+    baseStyleClassRoot: ""
 };

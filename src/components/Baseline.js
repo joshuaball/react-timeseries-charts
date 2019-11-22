@@ -13,21 +13,6 @@ import React from "react";
 import PropTypes from "prop-types";
 import _ from "underscore";
 
-const defaultStyle = {
-    label: {
-        fill: "#8B7E7E", // Default label color
-        fontWeight: 100,
-        fontSize: 11,
-        pointerEvents: "none"
-    },
-    line: {
-        stroke: "#626262",
-        strokeWidth: 1,
-        strokeDasharray: "5,3",
-        pointerEvents: "none"
-    }
-};
-
 /**
  *
  * The BaseLine component displays a simple horizontal line at a value.
@@ -56,7 +41,7 @@ const defaultStyle = {
  */
 export default class Baseline extends React.Component {
     render() {
-        const { vposition, yScale, value, position, style, width } = this.props;
+        const { vposition, yScale, value, position, style, width, baseStyleClassRoot } = this.props;
 
         if (!yScale || _.isUndefined(value)) {
             return null;
@@ -88,17 +73,20 @@ export default class Baseline extends React.Component {
         //
         // Style
         //
-
-        const baseLabelStyle = { ...defaultStyle.label, alignmentBaseline };
-
+        const baseLabelStyle = { alignmentBaseline };
         const labelStyle = merge(true, baseLabelStyle, style.label ? style.label : {});
-        const lineStyle = merge(true, defaultStyle.line, style.line ? style.line : {});
+        const lineStyle = { ...style.line };
+        const labelClasses = `${baseStyleClassRoot}baseline__label ` + (labelStyle.classes || "");
+        const lineClasses = `${baseStyleClassRoot}baseline__line ` + (lineStyle.classes || "");
+        delete labelStyle.classes;
+        delete lineStyle.classes;
 
         return (
             <g className="baseline" transform={transform}>
-                <polyline points={points} style={lineStyle} />
+                <polyline points={points} style={lineStyle} className={lineClasses} />
                 <text
                     style={labelStyle}
+                    className={labelClasses}
                     x={textPositionX}
                     y={textPositionY}
                     textAnchor={textAnchor}
@@ -116,7 +104,8 @@ Baseline.defaultProps = {
     label: "",
     position: "left",
     vposition: "auto",
-    style: defaultStyle
+    style: {},
+    baseStyleClassRoot: ""
 };
 
 Baseline.propTypes = {
@@ -171,5 +160,11 @@ Baseline.propTypes = {
     /**
      * [Internal] The width supplied by the surrounding ChartContainer
      */
-    width: PropTypes.number
+    width: PropTypes.number,
+
+    /**
+     * If specified, the base CSS class root used to build class names throughout the inner time series charting
+     * components.
+     */
+    baseStyleClassRoot: PropTypes.string
 };

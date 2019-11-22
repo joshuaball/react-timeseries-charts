@@ -9,7 +9,6 @@
  */
 
 import _ from "underscore";
-import merge from "merge";
 import moment from "moment";
 import React from "react";
 import ReactDOM from "react-dom"; // eslint-disable-line
@@ -37,24 +36,6 @@ import "moment-duration-format";
 function scaleAsString(scale) {
     return `${scale.domain().toString()}-${scale.range().toString()}`;
 }
-
-const defaultStyle = {
-    values: {
-        stroke: "none",
-        fill: "#8B7E7E", // Default value color
-        fontWeight: 100,
-        fontSize: 11,
-        font: '"Goudy Bookletter 1911", sans-serif"'
-    },
-    ticks: {
-        fill: "none",
-        stroke: "#C0C0C0"
-    },
-    axis: {
-        fill: "none",
-        stroke: "#C0C0C0"
-    }
-};
 
 // Millisecond value constants
 const MILLISECOND_SECOND = 1000;
@@ -168,21 +149,6 @@ export default class TimeAxis extends React.Component {
         return false;
     }
 
-    mergeStyles(style) {
-        return {
-            valueStyle: merge(
-                true,
-                defaultStyle.values,
-                this.props.style.values ? this.props.style.values : {}
-            ),
-            tickStyle: merge(
-                true,
-                defaultStyle.ticks,
-                this.props.style.ticks ? this.props.style.ticks : {}
-            )
-        };
-    }
-
     renderTimeAxis(scale, format, showGrid, gridHeight) {
         let axis;
 
@@ -190,8 +156,15 @@ export default class TimeAxis extends React.Component {
         const utc = this.props.utc;
         const tickCount = this.props.tickCount;
         const timeRange = this.props.timeRange;
-        const style = this.mergeStyles(this.props.style);
-        const { tickStyle, valueStyle } = style;
+        const { ticks, values } = this.props.style;
+        const tickStyle = { ...ticks };
+        const valueStyle = { ...values };
+        const tickClasses =
+            `${this.props.baseStyleClassRoot}timeAxis__ticks ` + (tickStyle.classes || "");
+        const valueClasses =
+            `${this.props.baseStyleClassRoot}timeAxis__values ` + (valueStyle.classes || "");
+        delete tickStyle.classes;
+        delete valueStyle.classes;
 
         if (tickCount > 0) {
             const beginningTimestamp = timeRange.begin().valueOf();
@@ -284,17 +257,18 @@ export default class TimeAxis extends React.Component {
         //
         select(ReactDOM.findDOMNode(this)) // eslint-disable-line
             .append("g")
-            .attr("class", "x axis")
-            .style("stroke", "none")
             .styles(valueStyle)
+            .classed(valueClasses, true)
             .call(axis.tickSize(tickSize));
 
+        // Apply style to axis tick labels
         if (this.props.angled) {
             select(ReactDOM.findDOMNode(this)) // eslint-disable-line
                 .select("g")
                 .selectAll(".tick")
                 .select("text")
                 .styles(valueStyle)
+                .classed(valueClasses, true)
                 .style("text-anchor", "end")
                 .attr("dx", "-1.2em")
                 .attr("dy", "0em")
@@ -306,13 +280,17 @@ export default class TimeAxis extends React.Component {
                 .select("g")
                 .selectAll(".tick")
                 .select("text")
-                .styles(valueStyle);
+                .styles(valueStyle)
+                .classed(valueClasses, true);
         }
+
+        // Apply style to axis ticks
         select(ReactDOM.findDOMNode(this)) // eslint-disable-line
             .select("g")
             .selectAll(".tick")
             .select("line")
-            .styles(tickStyle);
+            .styles(tickStyle)
+            .classed(tickClasses, true);
 
         select(ReactDOM.findDOMNode(this))
             .select("g")
@@ -327,8 +305,9 @@ export default class TimeAxis extends React.Component {
 
 TimeAxis.defaultProps = {
     showGrid: false,
-    style: defaultStyle,
-    angled: false
+    style: {},
+    angled: false,
+    baseStyleClassRoot: ""
 };
 
 TimeAxis.propTypes = {
@@ -344,5 +323,10 @@ TimeAxis.propTypes = {
         axis: PropTypes.object // eslint-disable-line
     }),
     tickCount: PropTypes.number,
-    timeRange: PropTypes.instanceOf(TimeRange)
+    timeRange: PropTypes.instanceOf(TimeRange),
+    /**
+     * If specified, the base CSS class root used to build class names throughout the inner time series charting
+     * components.
+     */
+    baseStyleClassRoot: PropTypes.string
 };

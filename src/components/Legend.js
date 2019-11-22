@@ -234,7 +234,7 @@ class LegendItem extends React.Component {
                 >
                     <div style={{ width: "20px" }}>{symbol}</div>
                     <div
-                        className="legend-item-container"
+                        className={`${this.props.baseStyleClassRoot}legendComponent__legendItemContainer`}
                         style={{
                             display: "flex",
                             flexDirection: "column"
@@ -402,7 +402,7 @@ export default class Legend extends React.Component {
                 },
                 legendStyle
             );
-            const mainClassName = `legend-component ${this.props.legendClassName}`;
+            const mainClassName = `${this.props.baseStyleClassRoot}legendComponent ${this.props.legendClassName}`;
 
             return (
                 <div style={mainStyle} className={mainClassName}>
@@ -418,7 +418,7 @@ export default class Legend extends React.Component {
                 },
                 legendStyle
             );
-            const mainClassName = `legend-component ${this.props.legendClassName}`;
+            const mainClassName = `${this.props.baseStyleClassRoot}legendComponent ${this.props.legendClassName}`;
 
             return (
                 <div style={mainStyle} className={mainClassName}>
@@ -517,7 +517,13 @@ Legend.propTypes = {
     /**
      * Defines whether to stack legend items vertically or not
      */
-    stack: PropTypes.bool
+    stack: PropTypes.bool,
+
+    /**
+     * If specified, the base CSS class root used to build class names throughout the inner time series charting
+     * components.
+     */
+    baseStyleClassRoot: PropTypes.string
 };
 
 Legend.defaultProps = {
@@ -528,5 +534,6 @@ Legend.defaultProps = {
     align: "left",
     symbolWidth: 16,
     symbolHeight: 16,
-    stack: false
+    stack: false,
+    baseStyleClassRoot: ""
 };

@@ -12,34 +12,10 @@ import React from "react";
 import PropTypes from "prop-types";
 import merge from "merge";
 
-const defaultBoxStyle = {
-    fill: "#FEFEFE",
-    stroke: "#DDD",
-    opacity: 0.8
-};
-
-const defaultTextStyle = {
-    fontSize: 11,
-    textAnchor: "left",
-    fill: "#b0b0b0",
-    pointerEvents: "none"
-};
-
-const defaultTextStyleCentered = {
-    fontSize: 11,
-    textAnchor: "middle",
-    fill: "#bdbdbd",
-    pointerEvents: "none"
-};
-
-function mergeStyles(style, isCentered) {
+function retrieveStyles(style) {
     return {
-        boxStyle: merge(true, defaultBoxStyle, style.box ? style.box : {}),
-        labelStyle: merge(
-            true,
-            isCentered ? defaultTextStyleCentered : defaultTextStyle,
-            style.label ? style.label : {}
-        )
+        boxStyle: { ...style.box },
+        labelStyle: { ...style.label }
     };
 }
 
@@ -52,18 +28,26 @@ function mergeStyles(style, isCentered) {
  *      +----------------+
  */
 
-const Label = ({ label, style, align, width, height }) => {
-    const { boxStyle, labelStyle } = mergeStyles(style, align === "center");
-
+const Label = ({ label, style, align, width, height, baseStyleClassRoot }) => {
+    const { boxStyle, labelStyle } = retrieveStyles(style);
     const posx = align === "center" ? parseInt(width / 2, 10) : 10;
+    const labelClassName = labelStyle.classes || "";
+    const boxClassName = boxStyle.classes || "";
+    delete labelStyle.classes;
+    delete boxStyle.classes;
+    const textClasses =
+        align === "center"
+            ? `${baseStyleClassRoot}labelText--centered ${labelClassName}`
+            : `${baseStyleClassRoot}labelText ${labelClassName}`;
 
     const text = (
-        <text x={posx} y={5} dy="1.2em" style={labelStyle}>
+        <text x={posx} y={5} dy="1.2em" style={labelStyle} className={textClasses}>
             {label}
         </text>
     );
-
-    const box = <rect x={0} y={0} style={boxStyle} width={width} height={height} />;
+    const box = (
+        <rect x={0} y={0} style={boxStyle} width={width} height={height} className={boxClassName} />
+    );
 
     return (
         <g>
@@ -77,7 +61,8 @@ Label.defaultProps = {
     align: "center",
     width: 100,
     height: 100,
-    pointerEvents: "none"
+    pointerEvents: "none",
+    baseStyleClassRoot: ""
 };
 
 Label.propTypes = {
@@ -105,7 +90,13 @@ Label.propTypes = {
     /**
      * The height of the rectangle to render into
      */
-    height: PropTypes.number
+    height: PropTypes.number,
+
+    /**
+     * If specified, the base CSS class root used to build class names throughout the inner time series charting
+     * components.
+     */
+    baseStyleClassRoot: PropTypes.string
 };
 
 export default Label;

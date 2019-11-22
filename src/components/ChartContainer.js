@@ -27,21 +27,6 @@ import Label from "./Label";
 import ChartRow from "./ChartRow";
 import { ChartRowCssClass } from "./ChartRow";
 
-const defaultTimeAxisStyle = {
-    axis: {
-        fill: "none",
-        stroke: "#C0C0C0",
-        pointerEvents: "none"
-    }
-};
-
-const defaultTitleStyle = {
-    fontWeight: 100,
-    fontSize: 14,
-    font: '"Goudy Bookletter 1911", sans-serif"',
-    fill: "#C0C0C0"
-};
-
 const defaultChartRowTitleLabelStyle = {
     fontWeight: 100,
     fontSize: 13,
@@ -52,23 +37,6 @@ const defaultChartRowTitleLabelStyle = {
 const defaultChartRowTitleBoxStyle = {
     fill: "white",
     stroke: "none"
-};
-
-const defaultTrackerStyle = {
-    line: {
-        stroke: "#999",
-        cursor: "crosshair",
-        pointerEvents: "none"
-    },
-    box: {
-        fill: "white",
-        opacity: 0.9,
-        stroke: "#999",
-        pointerEvents: "none"
-    },
-    dot: {
-        fill: "#999"
-    }
 };
 
 /**
@@ -365,11 +333,7 @@ export default class ChartContainer extends React.Component {
 
         // Chart title
         const transform = `translate(${leftWidth + paddingLeft},${yPosition})`;
-        const titleStyle = merge(
-            true,
-            defaultTitleStyle,
-            this.props.titleStyle ? this.props.titleStyle : {}
-        );
+        const titleStyle = this.props.titleStyle || {};
         const title = this.props.title ? (
             <g transform={transform}>
                 <Label
@@ -378,17 +342,14 @@ export default class ChartContainer extends React.Component {
                     style={{ label: titleStyle, box: { fill: "none", stroke: "none" } }}
                     width={chartsWidth}
                     height={titleHeight}
+                    baseStyleClassRoot={this.props.baseStyleClassRoot}
                 />
             </g>
         ) : (
             <g />
         );
 
-        const trackerStyle = merge(
-            true,
-            defaultTrackerStyle,
-            this.props.trackerStyle ? this.props.trackerStyle : {}
-        );
+        const trackerStyle = this.props.trackerStyle || {};
 
         //yPosition += titleHeight;
         let chartsHeight = 0;
@@ -417,6 +378,7 @@ export default class ChartContainer extends React.Component {
                     trackerTimeFormat: this.props.format,
                     trackerStyle: trackerStyle,
                     isPinchZooming: this.state.isPinchZooming,
+                    baseStyleClassRoot: this.props.baseStyleClassRoot,
                     onTimeRangeChanged: this.handleTimeRangeChanged,
                     onTrackerChanged: this.handleTrackerChanged
                 };
@@ -461,6 +423,7 @@ export default class ChartContainer extends React.Component {
                                     }}
                                     width={props.width}
                                     height={titleHeight}
+                                    baseStyleClassRoot={this.props.baseStyleClassRoot}
                                 />
                             </g>
                         );
@@ -499,6 +462,7 @@ export default class ChartContainer extends React.Component {
                         infoHeight={this.props.trackerHintHeight}
                         infoValues={this.props.trackerValues}
                         infoStyle={trackerStyle}
+                        baseStyleClassRoot={this.props.baseStyleClassRoot}
                     />
                 </g>
             );
@@ -507,20 +471,13 @@ export default class ChartContainer extends React.Component {
         //
         // TimeAxis
         //
+        let timeAxisStyle = { ...this.props.timeAxisStyle.axis };
+        const timeAxisClassName =
+            `${this.props.baseStyleClassRoot}timeAxis__axis ` + (timeAxisStyle.classes || "");
+        delete timeAxisStyle.classes;
 
-        let timeAxisStyle;
         if (this.props.hideTimeAxis) {
-            timeAxisStyle = {
-                axis: {
-                    display: "none"
-                }
-            };
-        } else {
-            timeAxisStyle = merge(
-                true,
-                defaultTimeAxisStyle.axis,
-                this.props.timeAxisStyle.axis ? this.props.timeAxisStyle.axis : {}
-            );
+            timeAxisStyle = { display: "none" };
         }
 
         const timeAxis = (
@@ -535,6 +492,7 @@ export default class ChartContainer extends React.Component {
                     x2={chartsWidth + rightWidth}
                     y2={0.5}
                     style={timeAxisStyle}
+                    className={timeAxisClassName}
                 />
                 <TimeAxis
                     scale={timeScale}
@@ -546,6 +504,7 @@ export default class ChartContainer extends React.Component {
                     gridHeight={chartsHeight}
                     tickCount={this.props.timeAxisTickCount}
                     timeRange={this.props.timeRange}
+                    baseStyleClassRoot={this.props.baseStyleClassRoot}
                 />
             </g>
         );
@@ -843,7 +802,8 @@ ChartContainer.propTypes = {
     titleHeight: PropTypes.number,
 
     /**
-     * Specify the styling of the chart's title
+     * Specify the styling of the chart's title.  This will contain CSS properties and any classes
+     * to apply via a "classes" property.
      */
     titleStyle: PropTypes.object,
 
@@ -885,7 +845,13 @@ ChartContainer.propTypes = {
     /**
      * Prop to hide time axis if required
      */
-    hideTimeAxis: PropTypes.bool
+    hideTimeAxis: PropTypes.bool,
+
+    /**
+     * If specified, the base CSS class root used to build class names throughout the inner time series charting
+     * components.
+     */
+    baseStyleClassRoot: PropTypes.string
 };
 
 ChartContainer.defaultProps = {
@@ -896,8 +862,9 @@ ChartContainer.defaultProps = {
     utc: false,
     showGrid: false,
     showGridPosition: "over",
-    timeAxisStyle: defaultTimeAxisStyle,
-    titleStyle: defaultTitleStyle,
-    trackerStyle: defaultTrackerStyle,
-    hideTimeAxis: false
+    timeAxisStyle: {},
+    titleStyle: {},
+    trackerStyle: {},
+    hideTimeAxis: false,
+    baseStyleClassRoot: ""
 };

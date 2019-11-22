@@ -444,7 +444,8 @@ export default class ChartRow extends React.Component {
                 time: this.props.trackerTime,
                 timeScale: this.props.timeScale,
                 width: chartWidth,
-                infoStyle: this.props.trackerStyle
+                infoStyle: this.props.trackerStyle,
+                baseStyleClassRoot: this.props.baseStyleClassRoot
             };
             if (this.props.trackerInfoValues) {
                 timeMarkerProps.infoWidth = this.props.trackerInfoWidth;
@@ -482,7 +483,8 @@ ChartRow.defaultProps = {
     enablePanZoom: false,
     height: 100,
     axisMargin: 5,
-    visible: true
+    visible: true,
+    baseStyleClassRoot: ""
 };
 
 ChartRow.propTypes = {
@@ -558,6 +560,12 @@ ChartRow.propTypes = {
      * Used to pause the touch interactions while true.
      */
     isPinchZooming: PropTypes.bool,
+
+    /**
+     * If specified, the base CSS class root used to build class names throughout the inner time series charting
+     * components.
+     */
+    baseStyleClassRoot: PropTypes.string,
 
     children: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.node), PropTypes.node]),
     leftAxisWidths: PropTypes.arrayOf(PropTypes.number),

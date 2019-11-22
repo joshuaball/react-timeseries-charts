@@ -12,34 +12,10 @@ import React from "react";
 import PropTypes from "prop-types";
 import merge from "merge";
 
-const defaultBoxStyle = {
-    fill: "#FEFEFE",
-    stroke: "#DDD",
-    opacity: 0.8
-};
-
-const defaultTextStyle = {
-    fontSize: 11,
-    textAnchor: "left",
-    fill: "#b0b0b0",
-    pointerEvents: "none"
-};
-
-const defaultTextStyleCentered = {
-    fontSize: 11,
-    textAnchor: "middle",
-    fill: "#bdbdbd",
-    pointerEvents: "none"
-};
-
-function mergeStyles(style, isCentered) {
+function retrieveStyles(style) {
     return {
-        boxStyle: merge(true, defaultBoxStyle, style.box ? style.box : {}),
-        labelStyle: merge(
-            true,
-            isCentered ? defaultTextStyleCentered : defaultTextStyle,
-            style.label ? style.label : {}
-        )
+        boxStyle: { ...style.box },
+        labelStyle: { ...style.label }
     };
 }
 
@@ -52,8 +28,16 @@ function mergeStyles(style, isCentered) {
  *      +----------------+
  */
 const ValueList = props => {
-    const { align, style, width, height } = props;
-    const { boxStyle, labelStyle } = mergeStyles(style, align === "center");
+    const { align, style, width, height, baseStyleClassRoot } = props;
+    const { boxStyle, labelStyle } = retrieveStyles(style);
+    const labelClassName = labelStyle.classes || "";
+    const boxClassName = boxStyle.classes || "";
+    delete labelStyle.classes;
+    delete boxStyle.classes;
+    const textClasses =
+        align === "center"
+            ? `${baseStyleClassRoot}labelText--centered ${labelClassName}`
+            : `${baseStyleClassRoot}labelText ${labelClassName}`;
 
     if (!props.values.length) {
         return <g />;
@@ -63,7 +47,13 @@ const ValueList = props => {
         if (align === "left") {
             return (
                 <g key={i}>
-                    <text x={10} y={5} dy={`${(i + 1) * 1.2}em`} style={labelStyle}>
+                    <text
+                        x={10}
+                        y={5}
+                        dy={`${(i + 1) * 1.2}em`}
+                        style={labelStyle}
+                        className={textClasses}
+                    >
                         <tspan style={{ fontWeight: 700 }}>{`${item.label}: `}</tspan>
                         <tspan>{`${item.value}`}</tspan>
                     </text>
@@ -74,7 +64,13 @@ const ValueList = props => {
         const posx = parseInt(props.width / 2, 10);
         return (
             <g key={i}>
-                <text x={posx} y={5} dy={`${(i + 1) * 1.2}em`} style={labelStyle}>
+                <text
+                    x={posx}
+                    y={5}
+                    dy={`${(i + 1) * 1.2}em`}
+                    style={labelStyle}
+                    className={textClasses}
+                >
                     <tspan style={{ fontWeight: 700 }}>{`${item.label}: `}</tspan>
                     <tspan>{`${item.value}`}</tspan>
                 </text>
@@ -82,7 +78,9 @@ const ValueList = props => {
         );
     });
 
-    const box = <rect style={boxStyle} x={0} y={0} width={width} height={height} />;
+    const box = (
+        <rect style={boxStyle} x={0} y={0} width={width} height={height} className={boxClassName} />
+    );
 
     return (
         <g>
@@ -97,7 +95,8 @@ ValueList.defaultProps = {
     width: 100,
     height: 100,
     pointerEvents: "none",
-    style: { fill: "#FEFEFE", stroke: "#DDD", opacity: 0.8 }
+    style: {},
+    baseStyleClassRoot: ""
 };
 
 ValueList.propTypes = {
@@ -133,7 +132,13 @@ ValueList.propTypes = {
     /**
      * The height of the rectangle to render into
      */
-    height: PropTypes.number
+    height: PropTypes.number,
+
+    /**
+     * If specified, the base CSS class root used to build class names throughout the inner time series charting
+     * components.
+     */
+    baseStyleClassRoot: PropTypes.string
 };
 
 export default ValueList;
