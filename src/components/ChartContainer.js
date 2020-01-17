@@ -326,7 +326,8 @@ export default class ChartContainer extends React.Component {
                   .domain(this.props.timeRange.toJSON())
                   .range([0, timeAxisWidth]));
 
-        const chartsWidth = this.props.width - leftWidth - rightWidth - paddingLeft - paddingRight;
+        let chartsWidth = this.props.width - leftWidth - rightWidth - paddingLeft - paddingRight;
+        chartsWidth = chartsWidth > 0 ? chartsWidth : 0;
 
         let i = 0;
         let yPosition = paddingTop;
