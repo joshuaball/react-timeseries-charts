@@ -227,7 +227,8 @@ export default class ChartRow extends React.Component {
         // Space used by columns on left and right of charts
         const leftWidth = _.reduce(this.props.leftAxisWidths, (a, b) => a + b, 0);
         const rightWidth = _.reduce(this.props.rightAxisWidths, (a, b) => a + b, 0);
-        const chartWidth = this.props.width - leftWidth - rightWidth - paddingLeft - paddingRight;
+        let chartWidth = this.props.width - leftWidth - rightWidth - paddingLeft - paddingRight;
+        chartWidth = chartWidth > 0 ? chartWidth : 0;
 
         posx = leftWidth;
         for (
