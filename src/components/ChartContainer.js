@@ -459,6 +459,7 @@ export default class ChartContainer extends React.Component {
                         time={this.props.trackerPosition}
                         timeScale={timeScale}
                         timeFormat={this.props.format}
+                        timeZone={this.props.timeZone}
                         infoWidth={this.props.trackerHintWidth}
                         infoHeight={this.props.trackerHintHeight}
                         infoValues={this.props.trackerValues}
@@ -505,6 +506,7 @@ export default class ChartContainer extends React.Component {
                     gridHeight={chartsHeight}
                     tickCount={this.props.timeAxisTickCount}
                     timeRange={this.props.timeRange}
+                    timeZone={this.props.timeZone}
                     baseStyleClassRoot={this.props.baseStyleClassRoot}
                 />
             </g>
@@ -844,6 +846,11 @@ ChartContainer.propTypes = {
     timeAxisAngledLabels: PropTypes.bool,
 
     /**
+     * The local time or timezone to apply to the chart's various time displays
+     */
+    timeZone: PropTypes.string,
+
+    /**
      * Prop to hide time axis if required
      */
     hideTimeAxis: PropTypes.bool,
@@ -864,6 +871,7 @@ ChartContainer.defaultProps = {
     showGrid: false,
     showGridPosition: "over",
     timeAxisStyle: {},
+    timeZone: "",
     titleStyle: {},
     trackerStyle: {},
     hideTimeAxis: false,

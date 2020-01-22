@@ -9,7 +9,7 @@
  */
 
 import _ from "underscore";
-import moment from "moment";
+import moment from "moment-timezone";
 import React from "react";
 import PropTypes from "prop-types";
 import { timeFormat } from "d3-time-format";
@@ -58,8 +58,16 @@ export default class TimeMarker extends React.Component {
         } else if (this.props.timeFormat === "relative") {
             dateStr = moment.duration(+d).format();
         } else if (_.isString(this.props.timeFormat)) {
-            const formatter = timeFormat(this.props.timeFormat);
-            dateStr = formatter(d);
+            // Use moment for the format and a timezone, if necessary
+            const { timeZone, timeFormat } = this.props;
+            const timezoneExists = timeZone ? moment.tz.zone(timeZone) !== null : false;
+            if (timezoneExists) {
+                dateStr = moment(d)
+                    .tz(timeZone)
+                    .format(timeFormat);
+            } else {
+                dateStr = moment(d).format(timeFormat);
+            }
         } else if (_.isFunction(this.props.timeFormat)) {
             dateStr = this.props.timeFormat(d);
         }
@@ -223,7 +231,12 @@ TimeMarker.propTypes = {
      * If specified, the base CSS class root used to build class names throughout the inner time series charting
      * components.
      */
-    baseStyleClassRoot: PropTypes.string
+    baseStyleClassRoot: PropTypes.string,
+
+    /**
+     * The local time or timezone to apply to the time display above the infobox
+     */
+    timeZone: PropTypes.string
 };
 
 TimeMarker.defaultProps = {
@@ -234,5 +247,6 @@ TimeMarker.defaultProps = {
     infoStyle: {},
     infoWidth: 90,
     infoHeight: 25,
-    baseStyleClassRoot: ""
+    baseStyleClassRoot: "",
+    timeZone: ""
 };

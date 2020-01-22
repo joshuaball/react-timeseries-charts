@@ -9,7 +9,7 @@
  */
 
 import _ from "underscore";
-import moment from "moment";
+import moment from "moment-timezone";
 import React from "react";
 import ReactDOM from "react-dom"; // eslint-disable-line
 import PropTypes from "prop-types";
@@ -46,16 +46,16 @@ const MILLISECOND_MONTH = 2592000000; // Rough; based on 30 days‬
 const MILLISECOND_YEAR = 31536000000; // Rough; based on 365 days (leap year not accounted for)
 
 // Time formats
-const formatMillisecond = timeFormat(".%L");
-const formatSecond = timeFormat(":%S");
-const formatMinute = timeFormat("%I:%M");
-const formatHour = timeFormat("%I %p");
-const formatDayHour = timeFormat("%a %d, %I %p");
-const formatDay = timeFormat("%a %d");
-const formatWeek = timeFormat("%b %d");
-const formatMonth = timeFormat("%B");
-const formatYearMonth = timeFormat("%b %Y");
-const formatYear = timeFormat("%Y");
+const formatMillisecond = ".SSS";
+const formatSecond = ":ss";
+const formatMinute = "h:mm";
+const formatHour = "h A";
+const formatDayHour = "ddd Do, h A";
+const formatDay = "ddd Do";
+const formatWeek = "MMM Do";
+const formatMonth = "MMMM";
+const formatYearMonth = "MMM YYYY";
+const formatYear = "YYYY";
 
 /**
  * Return a time format based on the difference of the start/end values of the passed in TimeRange. Time formats have
@@ -126,19 +126,20 @@ function timeRangeDiff(timeRange) {
  */
 export default class TimeAxis extends React.Component {
     componentDidMount() {
-        const { scale, format, showGrid, gridHeight } = this.props;
-        this.renderTimeAxis(scale, format, showGrid, gridHeight);
+        const { scale, format, showGrid, gridHeight, timeZone } = this.props;
+        this.renderTimeAxis(scale, format, showGrid, gridHeight, timeZone);
     }
 
     componentWillReceiveProps(nextProps) {
-        const { scale, utc, format, showGrid, gridHeight } = nextProps;
+        const { scale, utc, format, showGrid, gridHeight, timeZone } = nextProps;
         if (
             scaleAsString(this.props.scale) !== scaleAsString(scale) ||
             this.props.utc !== utc ||
             this.props.showGrid !== showGrid ||
-            this.props.gridHeight !== gridHeight
+            this.props.gridHeight !== gridHeight ||
+            this.props.timeZone !== timeZone
         ) {
-            this.renderTimeAxis(scale, format, showGrid, gridHeight);
+            this.renderTimeAxis(scale, format, showGrid, gridHeight, timeZone);
         }
     }
 
@@ -149,14 +150,12 @@ export default class TimeAxis extends React.Component {
         return false;
     }
 
-    renderTimeAxis(scale, format, showGrid, gridHeight) {
+    renderTimeAxis(scale, format, showGrid, gridHeight, timeZone) {
         let axis;
 
         const tickSize = showGrid ? -gridHeight : 10;
-        const utc = this.props.utc;
-        const tickCount = this.props.tickCount;
-        const timeRange = this.props.timeRange;
-        const { ticks, values } = this.props.style;
+        const { utc, style, tickCount, timeRange } = this.props;
+        const { ticks, values } = style;
         const tickStyle = { ...ticks };
         const valueStyle = { ...values };
         const tickClasses =
@@ -212,7 +211,16 @@ export default class TimeAxis extends React.Component {
                 const timeFormat = adjustableTimeFormat(timeRange);
                 axis = axisBottom(scale)
                     .tickValues(tickValues)
-                    .tickFormat(timeFormat)
+                    .tickFormat(date => {
+                        const timezoneExists = timeZone ? moment.tz.zone(timeZone) !== null : false;
+                        if (timezoneExists) {
+                            return moment(date)
+                                .tz(timeZone)
+                                .format(timeFormat);
+                        } else {
+                            return moment(date).format(timeFormat);
+                        }
+                    })
                     .tickSizeOuter(0);
             }
         } else {
@@ -307,7 +315,8 @@ TimeAxis.defaultProps = {
     showGrid: false,
     style: {},
     angled: false,
-    baseStyleClassRoot: ""
+    baseStyleClassRoot: "",
+    timeZone: ""
 };
 
 TimeAxis.propTypes = {
@@ -324,6 +333,7 @@ TimeAxis.propTypes = {
     }),
     tickCount: PropTypes.number,
     timeRange: PropTypes.instanceOf(TimeRange),
+    timeZone: PropTypes.string,
     /**
      * If specified, the base CSS class root used to build class names throughout the inner time series charting
      * components.

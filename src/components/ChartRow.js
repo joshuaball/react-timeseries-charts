@@ -444,6 +444,7 @@ export default class ChartRow extends React.Component {
                 showTime: this.props.trackerShowTime,
                 time: this.props.trackerTime,
                 timeScale: this.props.timeScale,
+                timeZone: this.props.timeZone,
                 width: chartWidth,
                 infoStyle: this.props.trackerStyle,
                 baseStyleClassRoot: this.props.baseStyleClassRoot
@@ -480,12 +481,13 @@ export default class ChartRow extends React.Component {
 }
 
 ChartRow.defaultProps = {
-    trackerTimeFormat: "%b %d %Y %X",
+    trackerTimeFormat: "MMM D YYYY h:mm:ss A", // "%b %d %Y %I:%M:%S %p"
     enablePanZoom: false,
     height: 100,
     axisMargin: 5,
     visible: true,
-    baseStyleClassRoot: ""
+    baseStyleClassRoot: "",
+    timeZone: "Local"
 };
 
 ChartRow.propTypes = {
@@ -567,6 +569,11 @@ ChartRow.propTypes = {
      * components.
      */
     baseStyleClassRoot: PropTypes.string,
+
+    /**
+     * The local time or timezone to apply to the chart's various time displays
+     */
+    timeZone: PropTypes.string,
 
     children: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.node), PropTypes.node]),
     leftAxisWidths: PropTypes.arrayOf(PropTypes.number),
