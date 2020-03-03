@@ -129,40 +129,31 @@ export default class TimeAxis extends React.Component {
         this.renderTimeAxis();
     }
 
+    /**
+     * Need a custom comparison of prev/next props so that the scale and timeRange values can be compared
+     * appropriately.
+     * @param nextProps
+     * @returns {boolean}
+     */
     shouldComponentUpdate(nextProps) {
         const incoming = Object.assign({}, nextProps);
         const current = Object.assign({}, this.props);
 
         delete incoming.scale;
+        delete incoming.timeRange;
         delete current.scale;
+        delete current.timeRange;
 
         return (
             !_.isEqual(current, incoming) ||
+            !this.props.timeRange.equals(nextProps.timeRange) ||
             scaleAsString(this.props.scale) !== scaleAsString(nextProps.scale)
         );
     }
 
     componentDidUpdate(prevProps) {
-        console.log(scaleAsString(prevProps)); // TODO, need to do a better check of the timerange
-        console.log(scaleAsString(prevProps.scale));
-        console.log(scaleAsString(this.props.scale));
-
         this.renderTimeAxis();
     }
-
-    // componentWillReceiveProps(nextProps) {
-    //     const { scale, utc, format, showGrid, gridHeight, timeZone } = nextProps;
-    //     if (
-    //         scaleAsString(this.props.scale) !== scaleAsString(scale) ||
-    //         this.props.utc !== utc
-    //         || this.props.showGrid !== showGrid
-    //         || this.props.gridHeight !== gridHeight
-    //         || this.props.timeZone !== timeZone
-    //         || this.props.format !== format
-    //     ) {
-    //         this.renderTimeAxis(scale, format, showGrid, gridHeight, timeZone);
-    //     }
-    // }
 
     /**
      * Build out the axis based on the provided tickValues.  If the the format of the axis is "Auto", create a time
@@ -238,8 +229,6 @@ export default class TimeAxis extends React.Component {
                     .tickFormat(d => moment.duration(+d).format())
                     .tickSizeOuter(0);
             } else if (_.isString(format)) {
-                console.log("STRING", format);
-
                 axis = this.buildAutoAxis(tickValues);
             } else if (_.isFunction(format)) {
                 axis = axisBottom(scale)
