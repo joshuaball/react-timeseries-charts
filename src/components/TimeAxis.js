@@ -126,31 +126,71 @@ function timeRangeDiff(timeRange) {
  */
 export default class TimeAxis extends React.Component {
     componentDidMount() {
-        const { scale, format, showGrid, gridHeight, timeZone } = this.props;
-        this.renderTimeAxis(scale, format, showGrid, gridHeight, timeZone);
+        this.renderTimeAxis();
     }
 
-    componentWillReceiveProps(nextProps) {
-        const { scale, utc, format, showGrid, gridHeight, timeZone } = nextProps;
-        if (
-            scaleAsString(this.props.scale) !== scaleAsString(scale) ||
-            this.props.utc !== utc ||
-            this.props.showGrid !== showGrid ||
-            this.props.gridHeight !== gridHeight ||
-            this.props.timeZone !== timeZone
-        ) {
-            this.renderTimeAxis(scale, format, showGrid, gridHeight, timeZone);
-        }
+    shouldComponentUpdate(nextProps) {
+        const incoming = Object.assign({}, nextProps);
+        const current = Object.assign({}, this.props);
+
+        delete incoming.scale;
+        delete current.scale;
+
+        return (
+            !_.isEqual(current, incoming) ||
+            scaleAsString(this.props.scale) !== scaleAsString(nextProps.scale)
+        );
     }
 
-    // Force the component not to update because d3 will control the
-    // DOM from this point down.
-    shouldComponentUpdate() {
-        // eslint-disable-line
-        return false;
+    componentDidUpdate(prevProps) {
+        console.log(scaleAsString(prevProps)); // TODO, need to do a better check of the timerange
+        console.log(scaleAsString(prevProps.scale));
+        console.log(scaleAsString(this.props.scale));
+
+        this.renderTimeAxis();
     }
 
-    renderTimeAxis(scale, format, showGrid, gridHeight, timeZone) {
+    // componentWillReceiveProps(nextProps) {
+    //     const { scale, utc, format, showGrid, gridHeight, timeZone } = nextProps;
+    //     if (
+    //         scaleAsString(this.props.scale) !== scaleAsString(scale) ||
+    //         this.props.utc !== utc
+    //         || this.props.showGrid !== showGrid
+    //         || this.props.gridHeight !== gridHeight
+    //         || this.props.timeZone !== timeZone
+    //         || this.props.format !== format
+    //     ) {
+    //         this.renderTimeAxis(scale, format, showGrid, gridHeight, timeZone);
+    //     }
+    // }
+
+    /**
+     * Build out the axis based on the provided tickValues.  If the the format of the axis is "Auto", create a time
+     * display for the tick labels that takes the overall TimeRange into account and provides a label that best
+     * matches the tick value based on the amount of time being displayed.  If not "Auto", use what is provided.
+     * @param tickValues
+     */
+    buildAutoAxis(tickValues) {
+        const { timeRange, scale, timeZone, format } = this.props;
+        const timeFormat = format !== "Auto" ? format : adjustableTimeFormat(timeRange);
+
+        return axisBottom(scale)
+            .tickValues(tickValues)
+            .tickFormat(date => {
+                const timezoneExists = timeZone ? moment.tz.zone(timeZone) !== null : false;
+                if (timezoneExists) {
+                    return moment(date)
+                        .tz(timeZone)
+                        .format(timeFormat);
+                } else {
+                    return moment(date).format(timeFormat);
+                }
+            })
+            .tickSizeOuter(0);
+    }
+
+    renderTimeAxis() {
+        const { scale, format, showGrid, gridHeight } = this.props;
         let axis;
 
         const tickSize = showGrid ? -gridHeight : 10;
@@ -198,30 +238,16 @@ export default class TimeAxis extends React.Component {
                     .tickFormat(d => moment.duration(+d).format())
                     .tickSizeOuter(0);
             } else if (_.isString(format)) {
-                axis = axisBottom(scale)
-                    .tickValues(tickValues)
-                    .tickFormat(timeFormat(format))
-                    .tickSizeOuter(0);
+                console.log("STRING", format);
+
+                axis = this.buildAutoAxis(tickValues);
             } else if (_.isFunction(format)) {
                 axis = axisBottom(scale)
                     .tickValues(tickValues)
                     .tickFormat(format)
                     .tickSizeOuter(0);
             } else {
-                const timeFormat = adjustableTimeFormat(timeRange);
-                axis = axisBottom(scale)
-                    .tickValues(tickValues)
-                    .tickFormat(date => {
-                        const timezoneExists = timeZone ? moment.tz.zone(timeZone) !== null : false;
-                        if (timezoneExists) {
-                            return moment(date)
-                                .tz(timeZone)
-                                .format(timeFormat);
-                        } else {
-                            return moment(date).format(timeFormat);
-                        }
-                    })
-                    .tickSizeOuter(0);
+                axis = this.buildAutoAxis(tickValues);
             }
         } else {
             if (format === "day") {
@@ -316,7 +342,8 @@ TimeAxis.defaultProps = {
     style: {},
     angled: false,
     baseStyleClassRoot: "",
-    timeZone: ""
+    timeZone: "",
+    format: "Auto"
 };
 
 TimeAxis.propTypes = {
